@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Upload, Play, ChevronDown } from 'lucide-react'
+import { Upload, Play } from 'lucide-react'
 import { createJob, fetchConfig, type AppConfig } from '../api'
+import CropSelector, { type CropValues } from '../CropSelector'
 
 // ─── Composants utilitaires ──────────────────────────────────────────────────
 
@@ -114,35 +115,76 @@ function ExtractForm() {
 }
 
 function CropForm() {
-  const [top,    setTop]    = useState('0')
-  const [bottom, setBottom] = useState('0')
-  const [left,   setLeft]   = useState('0')
-  const [right,  setRight]  = useState('0')
+  const fileRef  = useRef<HTMLInputElement>(null)
+  const [file,   setFile]   = useState<File | null>(null)
   const [gpu,    setGpu]    = useState(true)
+  const [crop,   setCrop]   = useState<CropValues>({ top: 0, bottom: 0, left: 0, right: 0 })
+
+  const handleCropChange = useCallback((v: CropValues) => setCrop(v), [])
+
+  const noCrop = crop.top === 0 && crop.bottom === 0 && crop.left === 0 && crop.right === 0
+
   return (
     <div className="space-y-4">
+      {/* Upload vidéo */}
       <div>
         <Label>Vidéo source</Label>
-        <FileInput name="video_file" label="Choisir une vidéo" accept="video/*" />
+        <input
+          ref={fileRef}
+          type="file"
+          name="video_file"
+          accept="video/*"
+          className="hidden"
+          onChange={e => setFile(e.target.files?.[0] ?? null)}
+        />
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          className="flex items-center gap-2 w-full bg-gray-800 border border-dashed border-gray-600 hover:border-violet-500 rounded-lg px-3 py-3 text-sm text-gray-400 hover:text-gray-200 transition-colors"
+        >
+          <Upload size={15} />
+          {file ? file.name : 'Choisir une vidéo'}
+        </button>
       </div>
-      <div className="grid grid-cols-2 gap-4">
+
+      {/* Sélecteur visuel — affiché dès qu'un fichier est choisi */}
+      {file && (
         <div>
-          <Label>Haut (px ou %)</Label>
-          <Input name="crop_top"    placeholder="0" value={top}    onChange={setTop} />
+          <Label>
+            Sélectionner la zone à garder{' '}
+            <span className="text-gray-500 font-normal">(glisser les poignées blanches)</span>
+          </Label>
+          <CropSelector file={file} onChange={handleCropChange} />
         </div>
-        <div>
-          <Label>Bas (px ou %)</Label>
-          <Input name="crop_bottom" placeholder="0" value={bottom} onChange={setBottom} />
+      )}
+
+      {/* Champs numériques en lecture seule — affichage + valeurs envoyées */}
+      {file && (
+        <div className="grid grid-cols-2 gap-3">
+          {(['top', 'bottom', 'left', 'right'] as const).map(side => (
+            <div key={side} className="bg-gray-800 rounded-lg px-3 py-2 flex justify-between items-center">
+              <span className="text-xs text-gray-400 capitalize">{
+                side === 'top' ? '↑ Haut' : side === 'bottom' ? '↓ Bas' : side === 'left' ? '← Gauche' : '→ Droite'
+              }</span>
+              <span className="text-sm font-mono text-white">{crop[side]} px</span>
+            </div>
+          ))}
         </div>
-        <div>
-          <Label>Gauche (px ou %)</Label>
-          <Input name="crop_left"   placeholder="0" value={left}   onChange={setLeft} />
-        </div>
-        <div>
-          <Label>Droite (px ou %)</Label>
-          <Input name="crop_right"  placeholder="0" value={right}  onChange={setRight} />
-        </div>
-      </div>
+      )}
+
+      {/* Avertissement si aucun crop */}
+      {file && noCrop && (
+        <p className="text-xs text-yellow-500">
+          Aucun crop sélectionné — la vidéo sera copiée sans modification.
+        </p>
+      )}
+
+      {/* Hidden inputs pour le form */}
+      <input type="hidden" name="crop_top"    value={crop.top} />
+      <input type="hidden" name="crop_bottom" value={crop.bottom} />
+      <input type="hidden" name="crop_left"   value={crop.left} />
+      <input type="hidden" name="crop_right"  value={crop.right} />
+
       <Checkbox name="use_gpu" label="Encodage GPU (h264_nvenc) — fallback CPU auto" checked={gpu} onChange={setGpu} />
       <input type="hidden" name="use_gpu" value={gpu ? 'true' : 'false'} />
     </div>
