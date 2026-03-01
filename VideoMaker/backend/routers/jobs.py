@@ -103,6 +103,15 @@ async def create_job(
     audio_job_ref: Optional[str] = Form(None),
     background_job_ref: Optional[str] = Form(None),
     content_job_ref: Optional[str] = Form(None),
+    # débat / composite
+    size_percent: Optional[str] = Form("35"),
+    quality_crf:  Optional[str] = Form("23"),
+    speaker_left:   Optional[UploadFile] = File(None),
+    speaker_center: Optional[UploadFile] = File(None),
+    speaker_right:  Optional[UploadFile] = File(None),
+    speaker_left_job_ref:   Optional[str] = Form(None),
+    speaker_center_job_ref: Optional[str] = Form(None),
+    speaker_right_job_ref:  Optional[str] = Form(None),
 ):
     # Créer l'entrée en base et le dossier d'output
     job_info = job_runner.create_job(style, title)
@@ -142,6 +151,26 @@ async def create_job(
     elif ref_content:
         saved["content_video_path"] = ref_content
         saved["content_path"] = ref_content
+
+    # Speakers débat (avec support job refs)
+    ref_left   = _resolve_job_ref(speaker_left_job_ref)
+    ref_center = _resolve_job_ref(speaker_center_job_ref)
+    ref_right  = _resolve_job_ref(speaker_right_job_ref)
+
+    if _has_file(speaker_left):
+        saved["speaker_left"] = _save_upload(speaker_left, output_dir)
+    elif ref_left:
+        saved["speaker_left"] = ref_left
+
+    if _has_file(speaker_center):
+        saved["speaker_center"] = _save_upload(speaker_center, output_dir)
+    elif ref_center:
+        saved["speaker_center"] = ref_center
+
+    if _has_file(speaker_right):
+        saved["speaker_right"] = _save_upload(speaker_right, output_dir)
+    elif ref_right:
+        saved["speaker_right"] = ref_right
 
     # Construire les params selon le style
     if style == "extract":
@@ -186,6 +215,30 @@ async def create_job(
             "content_path": saved.get("content_path") or saved.get("audio_path"),
             "audio_only": audio_only.lower() == "true",
             "border_color": border_color,
+        }
+    elif style == "debate_single":
+        params = {
+            "background_video_path": saved.get("background_video_path"),
+            "video_path": saved.get("video_path") or saved.get("speaker_left"),
+            "size_percent": int(size_percent or 55),
+            "crf": int(quality_crf or 23),
+        }
+    elif style == "debate_double":
+        params = {
+            "background_video_path": saved.get("background_video_path"),
+            "video_left_path":  saved.get("speaker_left"),
+            "video_right_path": saved.get("speaker_right"),
+            "size_percent": int(size_percent or 35),
+            "crf": int(quality_crf or 23),
+        }
+    elif style == "debate_diagonal":
+        params = {
+            "background_video_path": saved.get("background_video_path"),
+            "video_left_path":   saved.get("speaker_left"),
+            "video_center_path": saved.get("speaker_center"),
+            "video_right_path":  saved.get("speaker_right"),
+            "size_percent": int(size_percent or 28),
+            "crf": int(quality_crf or 23),
         }
     else:
         raise HTTPException(status_code=400, detail=f"Style inconnu: {style}")

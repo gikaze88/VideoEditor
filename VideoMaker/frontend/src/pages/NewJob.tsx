@@ -387,13 +387,226 @@ function PortraitForm({ onReady, preselectedJobId }: {
 
 // ─── Page principale ──────────────────────────────────────────────────────────
 
+// ─── Composants débat ─────────────────────────────────────────────────────────
+
+/** Diagramme visuel de la disposition des speakers sur le fond */
+function LayoutPreview({ type }: { type: 'single' | 'double' | 'diagonal' }) {
+  return (
+    <div className="relative bg-gray-800 rounded-lg overflow-hidden border border-gray-700"
+      style={{ width: 160, height: 90 }}>
+      {/* Background label */}
+      <span className="absolute inset-0 flex items-center justify-center text-[9px] text-gray-600 font-mono uppercase tracking-widest">
+        fond
+      </span>
+      {type === 'single' && (
+        <div className="absolute bg-violet-500/70 border border-violet-400 rounded text-[8px] text-white flex items-center justify-center font-bold"
+          style={{ left: '22%', top: '22%', width: '55%', height: '55%' }}>
+          speaker
+        </div>
+      )}
+      {(type === 'double' || type === 'diagonal') && (
+        <div className="absolute bg-blue-500/70 border border-blue-400 rounded text-[8px] text-white flex items-center justify-center font-bold"
+          style={{ left: '5%', top: '8%', width: '33%', height: '33%' }}>
+          gauche
+        </div>
+      )}
+      {type === 'diagonal' && (
+        <div className="absolute bg-emerald-500/70 border border-emerald-400 rounded text-[8px] text-white flex items-center justify-center font-bold"
+          style={{ left: '34%', top: '34%', width: '30%', height: '30%' }}>
+          centre
+        </div>
+      )}
+      {(type === 'double' || type === 'diagonal') && (
+        <div className="absolute bg-amber-500/70 border border-amber-400 rounded text-[8px] text-white flex items-center justify-center font-bold"
+          style={{ left: type === 'double' ? '62%' : '63%', top: type === 'double' ? '58%' : '60%', width: '33%', height: '33%' }}>
+          droite
+        </div>
+      )}
+    </div>
+  )
+}
+
+const QUALITY_OPTIONS = [
+  { label: 'Rapide (CRF 28)', value: '28' },
+  { label: 'Bonne (CRF 23)',  value: '23' },
+  { label: 'Haute (CRF 18)',  value: '18' },
+]
+
+function DebateSingleForm({ onReady }: { onReady: (ok: boolean) => void }) {
+  const [bg,   setBg]   = useState(false)
+  const [spk,  setSpk]  = useState(false)
+  const [size, setSize] = useState('55')
+  const [crf,  setCrf]  = useState('23')
+
+  useEffect(() => { onReady(bg && spk) }, [bg, spk, onReady])
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-start gap-6">
+        <div>
+          <p className="text-xs text-gray-500 mb-1.5 font-medium">Disposition</p>
+          <LayoutPreview type="single" />
+        </div>
+        <div className="text-xs text-gray-400 space-y-1 pt-6">
+          <p>• 1 speaker centré sur le fond</p>
+          <p>• Durée = durée du speaker</p>
+          <p>• Audio extrait du speaker</p>
+        </div>
+      </div>
+      <div>
+        <Label>Vidéo de fond <Required /></Label>
+        <FileInput name="background_video" label="Choisir la vidéo de fond" accept="video/*" onPicked={setBg} />
+      </div>
+      <div>
+        <Label>Vidéo du speaker <Required /></Label>
+        <FileInput name="speaker_left" label="Choisir la vidéo du speaker" accept="video/*" onPicked={setSpk} />
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label>Taille speaker ({size}%)</Label>
+          <input type="range" name="size_percent" min="30" max="70" value={size}
+            onChange={e => setSize(e.target.value)}
+            className="w-full accent-violet-500" />
+        </div>
+        <div>
+          <Label>Qualité</Label>
+          <Select name="quality_crf" value={crf} onChange={setCrf}>
+            {QUALITY_OPTIONS.map(q => <option key={q.value} value={q.value}>{q.label}</option>)}
+          </Select>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function DebateDoubleForm({ onReady }: { onReady: (ok: boolean) => void }) {
+  const [bg,    setBg]    = useState(false)
+  const [left,  setLeft]  = useState(false)
+  const [right, setRight] = useState(false)
+  const [size,  setSize]  = useState('35')
+  const [crf,   setCrf]   = useState('23')
+
+  useEffect(() => { onReady(bg && left && right) }, [bg, left, right, onReady])
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-start gap-6">
+        <div>
+          <p className="text-xs text-gray-500 mb-1.5 font-medium">Disposition</p>
+          <LayoutPreview type="double" />
+        </div>
+        <div className="text-xs text-gray-400 space-y-1 pt-6">
+          <p>• Gauche joue en 1er, droite figée</p>
+          <p>• Droite joue en 2ème, gauche figée</p>
+          <p>• Les deux toujours visibles</p>
+          <p>• Durée = gauche + droite</p>
+        </div>
+      </div>
+      <div>
+        <Label>Vidéo de fond <Required /></Label>
+        <FileInput name="background_video" label="Choisir la vidéo de fond" accept="video/*" onPicked={setBg} />
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label><span className="text-blue-400">■</span> Speaker gauche (1er) <Required /></Label>
+          <FileInput name="speaker_left" label="Vidéo gauche" accept="video/*" onPicked={setLeft} />
+        </div>
+        <div>
+          <Label><span className="text-amber-400">■</span> Speaker droite (2ème) <Required /></Label>
+          <FileInput name="speaker_right" label="Vidéo droite" accept="video/*" onPicked={setRight} />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label>Taille speakers ({size}%)</Label>
+          <input type="range" name="size_percent" min="20" max="50" value={size}
+            onChange={e => setSize(e.target.value)}
+            className="w-full accent-violet-500" />
+        </div>
+        <div>
+          <Label>Qualité</Label>
+          <Select name="quality_crf" value={crf} onChange={setCrf}>
+            {QUALITY_OPTIONS.map(q => <option key={q.value} value={q.value}>{q.label}</option>)}
+          </Select>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function DebateDiagonalForm({ onReady }: { onReady: (ok: boolean) => void }) {
+  const [bg,     setBg]     = useState(false)
+  const [left,   setLeft]   = useState(false)
+  const [center, setCenter] = useState(false)
+  const [right,  setRight]  = useState(false)
+  const [size,   setSize]   = useState('28')
+  const [crf,    setCrf]    = useState('23')
+
+  useEffect(() => { onReady(bg && left && center && right) }, [bg, left, center, right, onReady])
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-start gap-6">
+        <div>
+          <p className="text-xs text-gray-500 mb-1.5 font-medium">Disposition</p>
+          <LayoutPreview type="diagonal" />
+        </div>
+        <div className="text-xs text-gray-400 space-y-1 pt-4">
+          <p>• Gauche joue en 1er</p>
+          <p>• Centre joue en 2ème</p>
+          <p>• Droite joue en 3ème</p>
+          <p>• Les 3 toujours visibles (freeze)</p>
+          <p>• Durée = G + C + D</p>
+        </div>
+      </div>
+      <div>
+        <Label>Vidéo de fond <Required /></Label>
+        <FileInput name="background_video" label="Choisir la vidéo de fond" accept="video/*" onPicked={setBg} />
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <div>
+          <Label><span className="text-blue-400">■</span> Gauche (1er) <Required /></Label>
+          <FileInput name="speaker_left" label="Vidéo gauche" accept="video/*" onPicked={setLeft} />
+        </div>
+        <div>
+          <Label><span className="text-emerald-400">■</span> Centre (2ème) <Required /></Label>
+          <FileInput name="speaker_center" label="Vidéo centre" accept="video/*" onPicked={setCenter} />
+        </div>
+        <div>
+          <Label><span className="text-amber-400">■</span> Droite (3ème) <Required /></Label>
+          <FileInput name="speaker_right" label="Vidéo droite" accept="video/*" onPicked={setRight} />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label>Taille speakers ({size}%)</Label>
+          <input type="range" name="size_percent" min="15" max="35" value={size}
+            onChange={e => setSize(e.target.value)}
+            className="w-full accent-violet-500" />
+        </div>
+        <div>
+          <Label>Qualité</Label>
+          <Select name="quality_crf" value={crf} onChange={setCrf}>
+            {QUALITY_OPTIONS.map(q => <option key={q.value} value={q.value}>{q.label}</option>)}
+          </Select>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Icônes + groupes de styles ────────────────────────────────────────────────
+
 const STYLE_ICONS: Record<string, string> = {
-  extract:  '✂️',
-  crop:     '🖼️',
-  merge:    '🔗',
-  podcast:  '🎙️',
-  wave:     '🌊',
-  portrait: '📱',
+  extract:          '✂️',
+  crop:             '🖼️',
+  merge:            '🔗',
+  podcast:          '🎙️',
+  wave:             '🌊',
+  portrait:         '📱',
+  debate_single:    '🎤',
+  debate_double:    '👥',
+  debate_diagonal:  '🎭',
 }
 
 export default function NewJob() {
@@ -463,23 +676,39 @@ export default function NewJob() {
         <p className="text-gray-400 text-sm mt-1">Sélectionnez un type de traitement et configurez vos fichiers</p>
       </div>
 
-      {/* Sélection du style */}
-      <div className="grid grid-cols-3 gap-3">
-        {Object.entries(config.job_styles).map(([key, desc]) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setStyle(key)}
-            className={`text-left p-3 rounded-xl border transition-all ${
-              style === key
-                ? 'border-violet-500 bg-violet-500/10 text-white'
-                : 'border-gray-700 bg-gray-900 text-gray-400 hover:border-gray-500'
-            }`}
-          >
-            <div className="text-xl mb-1">{STYLE_ICONS[key] ?? '🎬'}</div>
-            <div className="text-sm font-medium capitalize">{key}</div>
-            <div className="text-xs text-gray-500 mt-0.5">{desc}</div>
-          </button>
+      {/* Sélection du style — groupé par catégorie */}
+      <div className="space-y-3">
+        {[
+          { label: 'Préparation', keys: ['extract', 'crop', 'merge'] },
+          { label: 'Génération', keys: ['podcast', 'wave', 'portrait'] },
+          { label: 'Débat / Composite', keys: ['debate_single', 'debate_double', 'debate_diagonal'] },
+        ].map(group => (
+          <div key={group.label}>
+            <p className="text-xs text-gray-600 font-medium uppercase tracking-wider mb-2">{group.label}</p>
+            <div className="grid grid-cols-3 gap-2">
+              {group.keys.map(key => {
+                const desc = config.job_styles[key] ?? ''
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setStyle(key)}
+                    className={`text-left p-3 rounded-xl border transition-all ${
+                      style === key
+                        ? 'border-violet-500 bg-violet-500/10 text-white'
+                        : 'border-gray-700 bg-gray-900 text-gray-400 hover:border-gray-500'
+                    }`}
+                  >
+                    <div className="text-xl mb-1">{STYLE_ICONS[key] ?? '🎬'}</div>
+                    <div className="text-xs font-medium">{desc.split('—')[0].trim()}</div>
+                    {desc.includes('—') && (
+                      <div className="text-[10px] text-gray-600 mt-0.5">{desc.split('—')[1].trim()}</div>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
         ))}
       </div>
 
@@ -492,12 +721,15 @@ export default function NewJob() {
 
         <hr className="border-gray-800" />
 
-        {style === 'extract'  && <ExtractForm  onReady={onReady} />}
-        {style === 'crop'     && <CropForm     onReady={onReady} />}
-        {style === 'merge'    && <MergeForm    onReady={onReady} />}
-        {style === 'podcast'  && <PodcastForm  config={config} onReady={onReady} preselectedJobId={preselectedJobId} />}
-        {style === 'wave'     && <WaveForm     config={config} onReady={onReady} preselectedJobId={preselectedJobId} />}
-        {style === 'portrait' && <PortraitForm onReady={onReady} preselectedJobId={preselectedJobId} />}
+        {style === 'extract'          && <ExtractForm        onReady={onReady} />}
+        {style === 'crop'             && <CropForm           onReady={onReady} />}
+        {style === 'merge'            && <MergeForm          onReady={onReady} />}
+        {style === 'podcast'          && <PodcastForm        config={config} onReady={onReady} preselectedJobId={preselectedJobId} />}
+        {style === 'wave'             && <WaveForm           config={config} onReady={onReady} preselectedJobId={preselectedJobId} />}
+        {style === 'portrait'         && <PortraitForm       onReady={onReady} preselectedJobId={preselectedJobId} />}
+        {style === 'debate_single'    && <DebateSingleForm   onReady={onReady} />}
+        {style === 'debate_double'    && <DebateDoubleForm   onReady={onReady} />}
+        {style === 'debate_diagonal'  && <DebateDiagonalForm onReady={onReady} />}
 
         {error && (
           <div className="bg-red-900/30 border border-red-700 rounded-lg px-4 py-3 text-sm text-red-300">

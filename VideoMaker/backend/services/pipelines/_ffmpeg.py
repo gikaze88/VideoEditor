@@ -12,6 +12,7 @@ Pourquoi :
 - Évite le problème Windows où l'itération `for line in proc.stdout`
   bloque car FFmpeg écrit avec \\r (carriage return) pas \\n
 """
+import json
 import subprocess
 from pathlib import Path
 
@@ -43,3 +44,22 @@ def check_ffmpeg(cmd: list, log_path: Path, error_msg: str):
     code = run_ffmpeg(cmd, log_path)
     if code != 0:
         raise RuntimeError(f"{error_msg} (code FFmpeg: {code})")
+
+
+def get_duration(path: Path) -> float:
+    """Retourne la durée en secondes d'un fichier vidéo/audio via ffprobe."""
+    cmd = [
+        "ffprobe", "-v", "quiet",
+        "-print_format", "json",
+        "-show_format",
+        str(path),
+    ]
+    result = subprocess.run(
+        cmd, capture_output=True, text=True,
+        stdin=subprocess.DEVNULL, timeout=30,
+    )
+    try:
+        data = json.loads(result.stdout)
+        return float(data["format"]["duration"])
+    except Exception as e:
+        raise RuntimeError(f"Impossible d'obtenir la durée de {path.name}: {e}")

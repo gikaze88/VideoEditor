@@ -33,10 +33,23 @@ VIDEO_MODES = ["audio", "mini", "hybrid"]
 
 # Styles de job disponibles
 JOB_STYLES = {
-    "extract":  "Extraire un segment vidéo",
-    "crop":     "Recadrer (supprimer des bordures)",
-    "merge":    "Fusionner plusieurs vidéos",
-    "podcast":  "Vidéo podcast (fond + audio)",
-    "wave":     "Vidéo avec waveform animée",
-    "portrait": "Vidéo portrait 1080×1920",
+    # Préparation
+    "extract":          "Extraire un segment vidéo",
+    "crop":             "Recadrer (supprimer des bordures)",
+    "merge":            "Fusionner plusieurs vidéos",
+    # Génération standard
+    "podcast":          "Vidéo podcast (fond + audio)",
+    "wave":             "Vidéo avec waveform animée",
+    "portrait":         "Vidéo portrait 1080×1920",
+    # Débat / composite
+    "debate_single":    "Débat — 1 intervenant (centré)",
+    "debate_double":    "Débat — 2 intervenants (diagonal)",
+    "debate_diagonal":  "Débat — 3 intervenants (escalier)",
+}
+
+# Niveaux de qualité CRF pour les composites
+COMPOSITE_QUALITY = {
+    "haute":   18,
+    "bonne":   23,
+    "rapide":  28,
 }

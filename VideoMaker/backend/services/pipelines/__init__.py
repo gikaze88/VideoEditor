@@ -1,1 +1,7 @@
-from . import clip_extractor, clip_cropper, simple_merger, podcast, wave, portrait, batch_extract, _ffmpeg
+from . import (
+    clip_extractor, clip_cropper, simple_merger,
+    podcast, wave, portrait,
+    batch_extract,
+    composite_single, composite_double, composite_diagonal,
+    _ffmpeg,
+)
