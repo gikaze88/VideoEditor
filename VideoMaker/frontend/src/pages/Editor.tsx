@@ -3,15 +3,19 @@
  * Workflow : Upload source → Player + Timeline → Marquer IN/OUT → Extraire / Merger → Créer vidéo
  */
 import {
-  useCallback, useEffect, useRef, useState,
+  useEffect, useRef, useState,
 } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Upload, Play, Pause, SkipBack, SkipForward,
   Scissors, Trash2, ChevronRight, Merge, Zap,
-  CheckCircle, AlertCircle, Loader,
+  AlertCircle, Loader,
 } from 'lucide-react'
 import { createBatchExtractJob, type SourceInfo, type ClipMark } from '../api'
+import {
+  getEditorState, setEditorState, resetEditorState,
+  type StoredClip,
+} from '../editorStore'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -233,11 +237,14 @@ function Timeline({ duration, currentTime, clips, pendingStart, onSeek }: Timeli
 export default function Editor() {
   const navigate = useNavigate()
 
+  // Restaurer le state depuis le store persistant (survit à la navigation)
+  const saved = getEditorState()
+
   // Source
-  const [source,      setSource]      = useState<SourceInfo | null>(null)
+  const [source,      setSourceState] = useState<SourceInfo | null>(saved.source)
 
   // Player state
-  const videoRef     = useRef<HTMLVideoElement>(null)
+  const videoRef      = useRef<HTMLVideoElement>(null)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration,    setDuration]    = useState(0)
   const [playing,     setPlaying]     = useState(false)
@@ -245,12 +252,38 @@ export default function Editor() {
   const [videoReady,  setVideoReady]  = useState(false)
 
   // Clip marking
-  const [pendingStart, setPendingStart] = useState<number | null>(null)
-  const [clips, setClips] = useState<(ClipMark & { id: string })[]>([])
+  const [pendingStart, setPendingStartState] = useState<number | null>(saved.pendingStart)
+  const [clips, setClipsState]              = useState<StoredClip[]>(saved.clips)
 
   // Submission
   const [submitting, setSubmitting] = useState(false)
   const [submitErr,  setSubmitErr]  = useState<string | null>(null)
+
+  // Wrappers qui écrivent aussi dans le store
+  function setSource(s: SourceInfo | null) {
+    setSourceState(s)
+    setEditorState({ source: s })
+  }
+  function setClips(fn: (prev: StoredClip[]) => StoredClip[]) {
+    setClipsState(prev => {
+      const next = fn(prev)
+      setEditorState({ clips: next })
+      return next
+    })
+  }
+  function setPendingStart(t: number | null) {
+    setPendingStartState(t)
+    setEditorState({ pendingStart: t })
+  }
+
+  // Sauvegarder la position vidéo en continu
+  const saveTimeRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  useEffect(() => {
+    saveTimeRef.current = setInterval(() => {
+      if (videoRef.current) setEditorState({ lastTime: videoRef.current.currentTime })
+    }, 2000)
+    return () => { if (saveTimeRef.current) clearInterval(saveTimeRef.current) }
+  }, [])
 
   // ── Video event listeners ──────────────────────────────────────────────────
   useEffect(() => {
@@ -258,7 +291,15 @@ export default function Editor() {
     if (!video || !source) return
 
     const onTime     = () => setCurrentTime(video.currentTime)
-    const onMeta     = () => { setDuration(video.duration); setVideoReady(true) }
+    const onMeta     = () => {
+      setDuration(video.duration)
+      setVideoReady(true)
+      // Restaurer la position sauvegardée
+      const saved = getEditorState()
+      if (saved.lastTime > 0 && saved.lastTime < video.duration) {
+        video.currentTime = saved.lastTime
+      }
+    }
     const onPlay     = () => setPlaying(true)
     const onPause    = () => setPlaying(false)
     const onEnded    = () => setPlaying(false)
@@ -377,7 +418,7 @@ export default function Editor() {
         </div>
         <button
           type="button"
-          onClick={() => { setSource(null); setClips([]); setPendingStart(null) }}
+          onClick={() => { resetEditorState(); setSourceState(null); setClipsState([]); setPendingStartState(null) }}
           className="text-xs text-gray-500 hover:text-gray-300 border border-gray-700 hover:border-gray-500 px-3 py-1.5 rounded-lg transition-colors"
         >
           Changer de vidéo
