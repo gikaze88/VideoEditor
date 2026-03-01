@@ -6,12 +6,13 @@ import shutil
 from pathlib import Path
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 from typing import Optional
 
 from ..database import get_connection, row_to_dict
 from ..models import JobResponse, JobLogsResponse
 from ..services import job_runner
-from ..config import OUTPUTS_DIR
+from ..config import OUTPUTS_DIR, SOURCES_DIR
 
 router = APIRouter(prefix="/api/jobs", tags=["jobs"])
 
@@ -192,6 +193,49 @@ async def create_job(
     # Lancer le job en arrière-plan
     job_runner.submit_job(job_id, style, params)
 
+    return _get_job_or_404(job_id)
+
+
+# ─── POST /api/jobs/batch-extract ────────────────────────────────────────────
+
+class ClipMark(BaseModel):
+    start: float
+    end:   float
+
+class BatchExtractRequest(BaseModel):
+    source_id: str
+    clips:     list[ClipMark]
+    merge:     bool = True
+    title:     Optional[str] = None
+
+@router.post("/batch-extract", response_model=JobResponse)
+def create_batch_extract(req: BatchExtractRequest):
+    """
+    Extrait N segments d'une vidéo source et les fusionne optionnellement.
+    Le source_id doit référencer une vidéo uploadée via /api/sources/upload.
+    """
+    source_dir = SOURCES_DIR / req.source_id
+    if not source_dir.exists():
+        raise HTTPException(400, "Source introuvable — uploadez d'abord la vidéo dans l'éditeur")
+
+    source_files = [f for f in source_dir.iterdir() if f.is_file()]
+    if not source_files:
+        raise HTTPException(400, "Fichier source introuvable")
+
+    source_path = str(source_files[0])
+    n = len(req.clips)
+    title = req.title or f"{n} clip{'s' if n > 1 else ''} extraits"
+
+    job_info = job_runner.create_job("batch_extract", title)
+    job_id   = job_info["id"]
+
+    params = {
+        "source_path": source_path,
+        "clips":       [{"start": c.start, "end": c.end} for c in req.clips],
+        "merge":       req.merge,
+    }
+
+    job_runner.submit_job(job_id, "batch_extract", params)
     return _get_job_or_404(job_id)
 
 

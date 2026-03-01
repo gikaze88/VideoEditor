@@ -1,8 +1,9 @@
 import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom'
-import { Film, PlusCircle, Clock } from 'lucide-react'
+import { Film, PlusCircle, Clock, Clapperboard } from 'lucide-react'
 import NewJob from './pages/NewJob'
 import JobDetail from './pages/JobDetail'
 import History from './pages/History'
+import Editor from './pages/Editor'
 
 export default function App() {
   return (
@@ -29,6 +30,19 @@ export default function App() {
             Nouveau job
           </NavLink>
           <NavLink
+            to="/editor"
+            className={({ isActive }) =>
+              `flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md transition-colors ${
+                isActive
+                  ? 'bg-violet-600 text-white'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-800'
+              }`
+            }
+          >
+            <Clapperboard size={15} />
+            Éditeur
+          </NavLink>
+          <NavLink
             to="/history"
             className={({ isActive }) =>
               `flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md transition-colors ${
@@ -44,9 +58,10 @@ export default function App() {
         </nav>
 
         {/* Contenu */}
-        <main className="flex-1 p-6 max-w-4xl mx-auto w-full">
+        <main className="flex-1 p-6 max-w-7xl mx-auto w-full">
           <Routes>
-            <Route path="/" element={<NewJob />} />
+            <Route path="/"        element={<NewJob />} />
+            <Route path="/editor"  element={<Editor />} />
             <Route path="/jobs/:id" element={<JobDetail />} />
             <Route path="/history" element={<History />} />
           </Routes>

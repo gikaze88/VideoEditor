@@ -28,6 +28,36 @@ export interface AppConfig {
   speed_factors: number[]
 }
 
+export interface SourceInfo {
+  source_id: string
+  filename:  string
+  path:      string
+  duration:  number
+  width:     number
+  height:    number
+  fps:       number
+}
+
+export interface ClipMark {
+  start: number
+  end:   number
+}
+
+export async function createBatchExtractJob(data: {
+  source_id: string
+  clips:     ClipMark[]
+  merge:     boolean
+  title?:    string
+}): Promise<Job> {
+  const r = await fetch('/api/jobs/batch-extract', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify(data),
+  })
+  if (!r.ok) throw new Error(await r.text())
+  return r.json()
+}
+
 export interface PrepJob {
   id: string
   style: string

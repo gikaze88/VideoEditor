@@ -109,12 +109,13 @@ def _run_job(job_id: str, style: str, params: dict):
 def _dispatch(style: str, job_id: str, params: dict, output_dir: Path, log_path: Path):
     """Appelle le bon pipeline selon le style."""
     pipeline_map = {
-        "extract": pipelines.clip_extractor,
-        "crop":    pipelines.clip_cropper,
-        "merge":   pipelines.simple_merger,
-        "podcast": pipelines.podcast,
-        "wave":    pipelines.wave,
-        "portrait": pipelines.portrait,
+        "extract":       pipelines.clip_extractor,
+        "crop":          pipelines.clip_cropper,
+        "merge":         pipelines.simple_merger,
+        "podcast":       pipelines.podcast,
+        "wave":          pipelines.wave,
+        "portrait":      pipelines.portrait,
+        "batch_extract": pipelines.batch_extract,
     }
 
     pipeline = pipeline_map.get(style)

@@ -7,6 +7,10 @@ PROJECT_ROOT = Path(__file__).parent.parent
 OUTPUTS_DIR = PROJECT_ROOT / "outputs"
 OUTPUTS_DIR.mkdir(exist_ok=True)
 
+# Dossier des vidéos sources uploadées pour l'éditeur
+SOURCES_DIR = PROJECT_ROOT / "sources"
+SOURCES_DIR.mkdir(exist_ok=True)
+
 # Base de données SQLite
 DB_PATH = Path(__file__).parent / "jobs.db"
 
