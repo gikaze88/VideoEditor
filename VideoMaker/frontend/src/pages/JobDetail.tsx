@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
-import { Download, ArrowLeft, CheckCircle, XCircle, Loader, Clock } from 'lucide-react'
-import { getJobLogs, downloadUrl, type JobLogs } from '../api'
+import { useParams, Link, useNavigate } from 'react-router-dom'
+import { Download, ArrowLeft, CheckCircle, XCircle, Loader, Clock, ArrowRight } from 'lucide-react'
+import { getJobLogs, getJob, downloadUrl, type JobLogs, type Job } from '../api'
 
 const STATUS_CONFIG = {
   pending:   { icon: Clock,        color: 'text-gray-400',  label: 'En attente' },
@@ -23,10 +23,47 @@ function ProgressBar({ status }: { status: string }) {
   )
 }
 
+const PREP_STYLES = ['extract', 'crop', 'merge']
+
+// Boutons "Utiliser dans →" pour les jobs de préparation complétés
+function UseAsSourceButtons({ jobId, style }: { jobId: string; style: string }) {
+  const navigate = useNavigate()
+  if (!PREP_STYLES.includes(style)) return null
+
+  const targets = [
+    { style: 'podcast',  label: 'Podcast',  icon: '🎙️' },
+    { style: 'wave',     label: 'Wave',     icon: '🌊' },
+    { style: 'portrait', label: 'Portrait', icon: '📱' },
+  ]
+
+  return (
+    <div className="bg-gray-900 rounded-2xl p-4 space-y-3">
+      <div className="flex items-center gap-2 text-sm font-semibold text-gray-300">
+        <ArrowRight size={15} className="text-violet-400" />
+        Utiliser ce résultat dans…
+      </div>
+      <div className="flex gap-2 flex-wrap">
+        {targets.map(t => (
+          <button
+            key={t.style}
+            type="button"
+            onClick={() => navigate('/', { state: { style: t.style, jobId } })}
+            className="flex items-center gap-2 bg-gray-800 hover:bg-violet-600 border border-gray-700 hover:border-violet-500 text-gray-300 hover:text-white text-sm px-3 py-2 rounded-xl transition-all"
+          >
+            <span>{t.icon}</span>
+            {t.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function JobDetail() {
   const { id } = useParams<{ id: string }>()
-  const [data, setData] = useState<JobLogs | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [data,    setData]    = useState<JobLogs | null>(null)
+  const [jobMeta, setJobMeta] = useState<Job | null>(null)
+  const [error,   setError]   = useState<string | null>(null)
   const logsRef = useRef<HTMLPreElement>(null)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -35,6 +72,11 @@ export default function JobDetail() {
     try {
       const d = await getJobLogs(id)
       setData(d)
+      // Charger les métadonnées complètes (style, etc.) une fois
+      if (!jobMeta) {
+        const meta = await getJob(id).catch(() => null)
+        if (meta) setJobMeta(meta)
+      }
       // Auto-scroll logs vers le bas
       if (logsRef.current) {
         logsRef.current.scrollTop = logsRef.current.scrollHeight
@@ -135,6 +177,11 @@ export default function JobDetail() {
           {data.logs || 'Aucun log disponible pour le moment...'}
         </pre>
       </div>
+
+      {/* Utiliser dans... (seulement pour extract/crop/merge complétés) */}
+      {data.status === 'completed' && jobMeta && (
+        <UseAsSourceButtons jobId={data.id} style={jobMeta.style} />
+      )}
 
       {/* Navigation */}
       {(data.status === 'completed' || data.status === 'failed') && (

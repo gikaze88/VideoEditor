@@ -1,10 +1,11 @@
 """
-Router assets : liste les fichiers disponibles dans outputs/.
+Router assets : config, outputs, et jobs de préparation réutilisables.
 """
 import os
 from pathlib import Path
 from fastapi import APIRouter
 from ..config import OUTPUTS_DIR, JOB_STYLES, WAVE_STYLES, VIDEO_MODES, AVAILABLE_SPEED_FACTORS
+from ..database import get_connection, row_to_dict
 
 router = APIRouter(prefix="/api/assets", tags=["assets"])
 
@@ -18,6 +19,25 @@ def get_config():
         "video_modes": VIDEO_MODES,
         "speed_factors": AVAILABLE_SPEED_FACTORS,
     }
+
+
+@router.get("/prep-jobs")
+def get_prep_jobs():
+    """
+    Retourne les jobs de préparation terminés (extract/crop/merge)
+    dont l'output peut être réutilisé comme source dans podcast/wave/portrait.
+    """
+    with get_connection() as conn:
+        rows = conn.execute(
+            """SELECT id, style, title, output_video_path, completed_at
+               FROM jobs
+               WHERE status = 'completed'
+                 AND style IN ('extract', 'crop', 'merge')
+                 AND output_video_path IS NOT NULL
+               ORDER BY completed_at DESC
+               LIMIT 20"""
+        ).fetchall()
+    return [row_to_dict(r) for r in rows]
 
 
 @router.get("/outputs")

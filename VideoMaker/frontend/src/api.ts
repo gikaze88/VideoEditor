@@ -28,6 +28,20 @@ export interface AppConfig {
   speed_factors: number[]
 }
 
+export interface PrepJob {
+  id: string
+  style: string
+  title: string | null
+  output_video_path: string | null
+  completed_at: string | null
+}
+
+export async function fetchPrepJobs(): Promise<PrepJob[]> {
+  const r = await fetch('/api/assets/prep-jobs')
+  if (!r.ok) return []
+  return r.json()
+}
+
 export async function fetchConfig(): Promise<AppConfig> {
   const r = await fetch('/api/assets/config')
   if (!r.ok) throw new Error('Erreur config')

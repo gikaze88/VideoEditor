@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { Upload, Play } from 'lucide-react'
 import { createJob, fetchConfig, type AppConfig } from '../api'
 import CropSelector, { type CropValues } from '../CropSelector'
+import JobPicker from '../JobPicker'
 
 // ─── Composants utilitaires ──────────────────────────────────────────────────
 
@@ -226,9 +227,11 @@ function MergeForm({ onReady }: { onReady: (ok: boolean) => void }) {
   )
 }
 
-function PodcastForm({ config, onReady }: { config: AppConfig; onReady: (ok: boolean) => void }) {
+function PodcastForm({ config, onReady, preselectedJobId }: {
+  config: AppConfig; onReady: (ok: boolean) => void; preselectedJobId?: string | null
+}) {
   const [bg,    setBg]    = useState(false)
-  const [audio, setAudio] = useState(false)
+  const [audio, setAudio] = useState(!!preselectedJobId)
   const [speed, setSpeed] = useState('1.0')
 
   useEffect(() => { onReady(bg && audio) }, [bg, audio, onReady])
@@ -241,7 +244,14 @@ function PodcastForm({ config, onReady }: { config: AppConfig; onReady: (ok: boo
       </div>
       <div>
         <Label>Audio / Vidéo source <Required /></Label>
-        <FileInput name="audio_file" label="Choisir audio ou vidéo" accept="audio/*,video/*" onPicked={setAudio} />
+        <JobPicker
+          name="audio_file"
+          jobRefName="audio_job_ref"
+          label="Choisir audio ou vidéo"
+          accept="audio/*,video/*"
+          onReady={setAudio}
+          preselectedJobId={preselectedJobId}
+        />
       </div>
       <div>
         <Label>Vitesse audio</Label>
@@ -255,8 +265,10 @@ function PodcastForm({ config, onReady }: { config: AppConfig; onReady: (ok: boo
   )
 }
 
-function WaveForm({ config, onReady }: { config: AppConfig; onReady: (ok: boolean) => void }) {
-  const [audio,      setAudio]      = useState(false)
+function WaveForm({ config, onReady, preselectedJobId }: {
+  config: AppConfig; onReady: (ok: boolean) => void; preselectedJobId?: string | null
+}) {
+  const [audio,      setAudio]      = useState(!!preselectedJobId)
   const [mini,       setMini]       = useState(false)
   const [waveStyle,  setWaveStyle]  = useState('sine')
   const [videoMode,  setVideoMode]  = useState('audio')
@@ -273,7 +285,14 @@ function WaveForm({ config, onReady }: { config: AppConfig; onReady: (ok: boolea
     <div className="space-y-4">
       <div>
         <Label>Audio / Vidéo source <Required /></Label>
-        <FileInput name="audio_file" label="Choisir audio ou vidéo" accept="audio/*,video/*" onPicked={setAudio} />
+        <JobPicker
+          name="audio_file"
+          jobRefName="audio_job_ref"
+          label="Choisir audio ou vidéo"
+          accept="audio/*,video/*"
+          onReady={setAudio}
+          preselectedJobId={preselectedJobId}
+        />
       </div>
       <div>
         <Label>Vidéo de fond <span className="text-gray-500 font-normal">(optionnel — fond noir si absent)</span></Label>
@@ -323,9 +342,11 @@ function WaveForm({ config, onReady }: { config: AppConfig; onReady: (ok: boolea
   )
 }
 
-function PortraitForm({ onReady }: { onReady: (ok: boolean) => void }) {
+function PortraitForm({ onReady, preselectedJobId }: {
+  onReady: (ok: boolean) => void; preselectedJobId?: string | null
+}) {
   const [bg,           setBg]           = useState(false)
-  const [content,      setContent]      = useState(false)
+  const [content,      setContent]      = useState(!!preselectedJobId)
   const [audioOnly,    setAudioOnly]    = useState(false)
   const [borderColor,  setBorderColor]  = useState('white')
 
@@ -339,7 +360,14 @@ function PortraitForm({ onReady }: { onReady: (ok: boolean) => void }) {
       </div>
       <div>
         <Label>Contenu à intégrer (vidéo ou audio) <Required /></Label>
-        <FileInput name="content_video" label="Choisir vidéo ou audio" accept="audio/*,video/*" onPicked={setContent} />
+        <JobPicker
+          name="content_video"
+          jobRefName="content_job_ref"
+          label="Choisir vidéo ou audio"
+          accept="audio/*,video/*"
+          onReady={setContent}
+          preselectedJobId={preselectedJobId}
+        />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div>
@@ -369,13 +397,21 @@ const STYLE_ICONS: Record<string, string> = {
 }
 
 export default function NewJob() {
-  const navigate = useNavigate()
+  const navigate  = useNavigate()
+  const location  = useLocation()
+
+  // État passé depuis JobDetail via navigate("/", { state: { style, jobId } })
+  const navState = location.state as { style?: string; jobId?: string } | null
+
   const [config,  setConfig]  = useState<AppConfig | null>(null)
-  const [style,   setStyle]   = useState('extract')
+  const [style,   setStyle]   = useState(navState?.style ?? 'extract')
   const [title,   setTitle]   = useState('')
   const [loading, setLoading] = useState(false)
   const [error,   setError]   = useState<string | null>(null)
   const [canSubmit, setCanSubmit] = useState(false)
+
+  // Job pré-sélectionné depuis le bouton "Utiliser dans..." de JobDetail
+  const preselectedJobId = navState?.jobId ?? null
 
   const onReady = useCallback((ok: boolean) => setCanSubmit(ok), [])
 
@@ -384,7 +420,9 @@ export default function NewJob() {
   }, [])
 
   // Reset validité quand on change de style
-  useEffect(() => { setCanSubmit(false) }, [style])
+  useEffect(() => {
+    setCanSubmit(!!preselectedJobId)
+  }, [style, preselectedJobId])
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -457,9 +495,9 @@ export default function NewJob() {
         {style === 'extract'  && <ExtractForm  onReady={onReady} />}
         {style === 'crop'     && <CropForm     onReady={onReady} />}
         {style === 'merge'    && <MergeForm    onReady={onReady} />}
-        {style === 'podcast'  && <PodcastForm  config={config} onReady={onReady} />}
-        {style === 'wave'     && <WaveForm     config={config} onReady={onReady} />}
-        {style === 'portrait' && <PortraitForm onReady={onReady} />}
+        {style === 'podcast'  && <PodcastForm  config={config} onReady={onReady} preselectedJobId={preselectedJobId} />}
+        {style === 'wave'     && <WaveForm     config={config} onReady={onReady} preselectedJobId={preselectedJobId} />}
+        {style === 'portrait' && <PortraitForm onReady={onReady} preselectedJobId={preselectedJobId} />}
 
         {error && (
           <div className="bg-red-900/30 border border-red-700 rounded-lg px-4 py-3 text-sm text-red-300">

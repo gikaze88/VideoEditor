@@ -26,6 +26,23 @@ def _get_job_or_404(job_id: str) -> dict:
     return row_to_dict(row)
 
 
+def _resolve_job_ref(job_ref: Optional[str]) -> Optional[str]:
+    """Résout un job ID en chemin absolu vers sa vidéo de sortie."""
+    if not job_ref:
+        return None
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT output_video_path FROM jobs WHERE id=? AND status='completed'",
+            (job_ref,)
+        ).fetchone()
+    if not row:
+        return None
+    path = row_to_dict(row).get("output_video_path")
+    if path and Path(path).exists():
+        return path
+    return None
+
+
 def _has_file(f: Optional[UploadFile]) -> bool:
     """Vérifie qu'un UploadFile contient réellement un fichier (filename non vide).
     FastAPI reçoit des UploadFile avec filename='' quand un <input type=file>
@@ -80,26 +97,50 @@ async def create_job(
     background_video: Optional[UploadFile] = File(None),
     audio_file: Optional[UploadFile] = File(None),
     content_video: Optional[UploadFile] = File(None),
+    # références vers des jobs précédents (évite de ré-uploader)
+    video_job_ref: Optional[str] = Form(None),
+    audio_job_ref: Optional[str] = Form(None),
+    background_job_ref: Optional[str] = Form(None),
+    content_job_ref: Optional[str] = Form(None),
 ):
     # Créer l'entrée en base et le dossier d'output
     job_info = job_runner.create_job(style, title)
     job_id = job_info["id"]
     output_dir = Path(job_info["output_dir"])
 
-    # Sauvegarder les fichiers uploadés (uniquement ceux avec un vrai fichier)
+    # Résoudre les références vers des jobs précédents
+    ref_video      = _resolve_job_ref(video_job_ref)
+    ref_audio      = _resolve_job_ref(audio_job_ref)
+    ref_background = _resolve_job_ref(background_job_ref)
+    ref_content    = _resolve_job_ref(content_job_ref)
+
+    # Sauvegarder les fichiers uploadés (priorité : upload > référence job)
     saved = {}
     if _has_file(video_file):
         saved["video_path"] = _save_upload(video_file, output_dir)
+    elif ref_video:
+        saved["video_path"] = ref_video
+
     if video_files:
         paths = [_save_upload_optional(f, output_dir) for f in video_files]
         saved["video_paths"] = [p for p in paths if p is not None]
+
     if _has_file(background_video):
         saved["background_video_path"] = _save_upload(background_video, output_dir)
+    elif ref_background:
+        saved["background_video_path"] = ref_background
+
     if _has_file(audio_file):
         saved["audio_path"] = _save_upload(audio_file, output_dir)
+    elif ref_audio:
+        saved["audio_path"] = ref_audio
+
     if _has_file(content_video):
         saved["content_video_path"] = _save_upload(content_video, output_dir)
         saved["content_path"] = saved["content_video_path"]
+    elif ref_content:
+        saved["content_video_path"] = ref_content
+        saved["content_path"] = ref_content
 
     # Construire les params selon le style
     if style == "extract":
