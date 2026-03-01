@@ -1,0 +1,207 @@
+"""
+Router jobs : CRUD + upload de fichiers + téléchargement.
+"""
+import os
+import shutil
+from pathlib import Path
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form
+from fastapi.responses import FileResponse
+from typing import Optional
+
+from ..database import get_connection, row_to_dict
+from ..models import JobResponse, JobLogsResponse
+from ..services import job_runner
+from ..config import OUTPUTS_DIR
+
+router = APIRouter(prefix="/api/jobs", tags=["jobs"])
+
+
+# ─── Helpers ─────────────────────────────────────────────────────────────────
+
+def _get_job_or_404(job_id: str) -> dict:
+    with get_connection() as conn:
+        row = conn.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Job introuvable")
+    return row_to_dict(row)
+
+
+def _save_upload(file: UploadFile, dest_dir: Path) -> str:
+    dest = dest_dir / file.filename
+    with open(dest, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+    return str(dest)
+
+
+# ─── POST /api/jobs ───────────────────────────────────────────────────────────
+
+@router.post("", response_model=JobResponse)
+async def create_job(
+    style: str = Form(...),
+    title: Optional[str] = Form(None),
+    # extract
+    start_time: Optional[str] = Form(None),
+    end_time: Optional[str] = Form(None),
+    # crop
+    crop_top: Optional[str] = Form("0"),
+    crop_bottom: Optional[str] = Form("0"),
+    crop_left: Optional[str] = Form("0"),
+    crop_right: Optional[str] = Form("0"),
+    use_gpu: Optional[str] = Form("true"),
+    # merge
+    reverse_order: Optional[str] = Form("false"),
+    # podcast / wave / portrait
+    speed_factor: Optional[str] = Form("1.0"),
+    wave_style: Optional[str] = Form("sine"),
+    video_mode: Optional[str] = Form("audio"),
+    wave_color: Optional[str] = Form("white"),
+    audio_only: Optional[str] = Form("false"),
+    border_color: Optional[str] = Form("white"),
+    # fichiers uploadés
+    video_file: Optional[UploadFile] = File(None),
+    video_files: Optional[list[UploadFile]] = File(None),
+    background_video: Optional[UploadFile] = File(None),
+    audio_file: Optional[UploadFile] = File(None),
+    content_video: Optional[UploadFile] = File(None),
+):
+    # Créer l'entrée en base et le dossier d'output
+    job_info = job_runner.create_job(style, title)
+    job_id = job_info["id"]
+    output_dir = Path(job_info["output_dir"])
+
+    # Sauvegarder les fichiers uploadés
+    saved = {}
+    if video_file:
+        saved["video_path"] = _save_upload(video_file, output_dir)
+    if video_files:
+        saved["video_paths"] = [_save_upload(f, output_dir) for f in video_files]
+    if background_video:
+        saved["background_video_path"] = _save_upload(background_video, output_dir)
+    if audio_file:
+        saved["audio_path"] = _save_upload(audio_file, output_dir)
+    if content_video:
+        saved["content_video_path"] = _save_upload(content_video, output_dir)
+        saved["content_path"] = saved["content_video_path"]
+
+    # Construire les params selon le style
+    if style == "extract":
+        params = {
+            "video_path": saved.get("video_path"),
+            "start_time": start_time,
+            "end_time": end_time,
+        }
+    elif style == "crop":
+        params = {
+            "video_path": saved.get("video_path"),
+            "top": crop_top,
+            "bottom": crop_bottom,
+            "left": crop_left,
+            "right": crop_right,
+            "use_gpu": use_gpu.lower() == "true",
+        }
+    elif style == "merge":
+        params = {
+            "video_paths": saved.get("video_paths", []),
+            "reverse_order": reverse_order.lower() == "true",
+        }
+    elif style == "podcast":
+        params = {
+            "background_video_path": saved.get("background_video_path"),
+            "audio_path": saved.get("audio_path"),
+            "speed_factor": float(speed_factor),
+        }
+    elif style == "wave":
+        params = {
+            "audio_path": saved.get("audio_path") or saved.get("video_path"),
+            "background_video_path": saved.get("background_video_path"),
+            "wave_style": wave_style,
+            "video_mode": video_mode,
+            "content_video_path": saved.get("content_video_path"),
+            "speed_factor": float(speed_factor),
+            "wave_color": wave_color,
+        }
+    elif style == "portrait":
+        params = {
+            "background_video_path": saved.get("background_video_path"),
+            "content_path": saved.get("content_path") or saved.get("audio_path"),
+            "audio_only": audio_only.lower() == "true",
+            "border_color": border_color,
+        }
+    else:
+        raise HTTPException(status_code=400, detail=f"Style inconnu: {style}")
+
+    # Lancer le job en arrière-plan
+    job_runner.submit_job(job_id, style, params)
+
+    return _get_job_or_404(job_id)
+
+
+# ─── GET /api/jobs ────────────────────────────────────────────────────────────
+
+@router.get("", response_model=list[JobResponse])
+def list_jobs():
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM jobs ORDER BY created_at DESC"
+        ).fetchall()
+    return [row_to_dict(r) for r in rows]
+
+
+# ─── GET /api/jobs/{id} ───────────────────────────────────────────────────────
+
+@router.get("/{job_id}", response_model=JobResponse)
+def get_job(job_id: str):
+    return _get_job_or_404(job_id)
+
+
+# ─── GET /api/jobs/{id}/logs ─────────────────────────────────────────────────
+
+@router.get("/{job_id}/logs", response_model=JobLogsResponse)
+def get_logs(job_id: str):
+    job = _get_job_or_404(job_id)
+    logs = ""
+    if job.get("log_file") and Path(job["log_file"]).exists():
+        with open(job["log_file"], "r", encoding="utf-8", errors="replace") as f:
+            logs = f.read()
+    return {
+        "id": job_id,
+        "status": job["status"],
+        "logs": logs,
+        "output_video_path": job.get("output_video_path"),
+    }
+
+
+# ─── GET /api/jobs/{id}/download ─────────────────────────────────────────────
+
+@router.get("/{job_id}/download")
+def download_video(job_id: str):
+    job = _get_job_or_404(job_id)
+    if job["status"] != "completed":
+        raise HTTPException(status_code=400, detail="Job pas encore terminé")
+    video_path = job.get("output_video_path")
+    if not video_path or not Path(video_path).exists():
+        raise HTTPException(status_code=404, detail="Fichier vidéo introuvable")
+    return FileResponse(
+        path=video_path,
+        media_type="video/mp4",
+        filename=Path(video_path).name,
+    )
+
+
+# ─── DELETE /api/jobs/{id} ────────────────────────────────────────────────────
+
+@router.delete("/{job_id}")
+def delete_job(job_id: str):
+    job = _get_job_or_404(job_id)
+
+    # Supprimer le dossier output
+    if job.get("output_dir"):
+        output_dir = Path(job["output_dir"])
+        if output_dir.exists():
+            shutil.rmtree(output_dir, ignore_errors=True)
+
+    with get_connection() as conn:
+        conn.execute("DELETE FROM jobs WHERE id=?", (job_id,))
+        conn.commit()
+
+    return {"detail": "Job supprimé"}
