@@ -26,11 +26,28 @@ def _get_job_or_404(job_id: str) -> dict:
     return row_to_dict(row)
 
 
+def _has_file(f: Optional[UploadFile]) -> bool:
+    """Vérifie qu'un UploadFile contient réellement un fichier (filename non vide).
+    FastAPI reçoit des UploadFile avec filename='' quand un <input type=file>
+    est présent dans le form mais qu'aucun fichier n'a été sélectionné."""
+    return f is not None and bool(f.filename)
+
+
 def _save_upload(file: UploadFile, dest_dir: Path) -> str:
+    """Sauvegarde un fichier uploadé. Lève ValueError si le fichier est vide."""
+    if not _has_file(file):
+        raise ValueError("Fichier manquant ou nom de fichier vide")
     dest = dest_dir / file.filename
     with open(dest, "wb") as f:
         shutil.copyfileobj(file.file, f)
     return str(dest)
+
+
+def _save_upload_optional(file: Optional[UploadFile], dest_dir: Path) -> Optional[str]:
+    """Sauvegarde un fichier optionnel — retourne None si absent."""
+    if not _has_file(file):
+        return None
+    return _save_upload(file, dest_dir)
 
 
 # ─── POST /api/jobs ───────────────────────────────────────────────────────────
@@ -69,17 +86,18 @@ async def create_job(
     job_id = job_info["id"]
     output_dir = Path(job_info["output_dir"])
 
-    # Sauvegarder les fichiers uploadés
+    # Sauvegarder les fichiers uploadés (uniquement ceux avec un vrai fichier)
     saved = {}
-    if video_file:
+    if _has_file(video_file):
         saved["video_path"] = _save_upload(video_file, output_dir)
     if video_files:
-        saved["video_paths"] = [_save_upload(f, output_dir) for f in video_files]
-    if background_video:
+        paths = [_save_upload_optional(f, output_dir) for f in video_files]
+        saved["video_paths"] = [p for p in paths if p is not None]
+    if _has_file(background_video):
         saved["background_video_path"] = _save_upload(background_video, output_dir)
-    if audio_file:
+    if _has_file(audio_file):
         saved["audio_path"] = _save_upload(audio_file, output_dir)
-    if content_video:
+    if _has_file(content_video):
         saved["content_video_path"] = _save_upload(content_video, output_dir)
         saved["content_path"] = saved["content_video_path"]
 

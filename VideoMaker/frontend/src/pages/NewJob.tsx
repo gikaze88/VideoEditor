@@ -10,6 +10,10 @@ function Label({ children }: { children: React.ReactNode }) {
   return <label className="block text-sm font-medium text-gray-300 mb-1">{children}</label>
 }
 
+function Required() {
+  return <span className="text-red-400 ml-0.5">*</span>
+}
+
 function Select({
   name, value, onChange, children,
 }: { name: string; value: string; onChange: (v: string) => void; children: React.ReactNode }) {
@@ -41,8 +45,8 @@ function Input({
 }
 
 function FileInput({
-  name, label, accept, multiple = false,
-}: { name: string; label: string; accept?: string; multiple?: boolean }) {
+  name, label, accept, multiple = false, onPicked,
+}: { name: string; label: string; accept?: string; multiple?: boolean; onPicked?: (has: boolean) => void }) {
   const ref = useRef<HTMLInputElement>(null)
   const [files, setFiles] = useState<string[]>([])
 
@@ -58,12 +62,17 @@ function FileInput({
         onChange={e => {
           const picked = Array.from(e.target.files ?? []).map(f => f.name)
           setFiles(picked)
+          onPicked?.(picked.length > 0)
         }}
       />
       <button
         type="button"
         onClick={() => ref.current?.click()}
-        className="flex items-center gap-2 w-full bg-gray-800 border border-dashed border-gray-600 hover:border-violet-500 rounded-lg px-3 py-3 text-sm text-gray-400 hover:text-gray-200 transition-colors"
+        className={`flex items-center gap-2 w-full border border-dashed rounded-lg px-3 py-3 text-sm transition-colors ${
+          files.length > 0
+            ? 'bg-gray-800 border-violet-500 text-gray-200'
+            : 'bg-gray-800 border-gray-600 text-gray-400 hover:border-violet-500 hover:text-gray-200'
+        }`}
       >
         <Upload size={15} />
         {files.length > 0 ? files.join(', ') : label}
@@ -91,22 +100,28 @@ function Checkbox({
 
 // ─── Formulaires par style ────────────────────────────────────────────────────
 
-function ExtractForm() {
+function ExtractForm({ onReady }: { onReady: (ok: boolean) => void }) {
+  const [file,  setFile]  = useState(false)
   const [start, setStart] = useState('')
-  const [end, setEnd]     = useState('')
+  const [end,   setEnd]   = useState('')
+
+  useEffect(() => {
+    onReady(file && start.trim() !== '' && end.trim() !== '')
+  }, [file, start, end, onReady])
+
   return (
     <div className="space-y-4">
       <div>
-        <Label>Vidéo source</Label>
-        <FileInput name="video_file" label="Choisir une vidéo" accept="video/*" />
+        <Label>Vidéo source <Required /></Label>
+        <FileInput name="video_file" label="Choisir une vidéo" accept="video/*" onPicked={setFile} />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <Label>Début (HH:MM:SS ou secondes)</Label>
+          <Label>Début (HH:MM:SS ou secondes) <Required /></Label>
           <Input name="start_time" placeholder="00:01:30" value={start} onChange={setStart} />
         </div>
         <div>
-          <Label>Fin (HH:MM:SS ou secondes)</Label>
+          <Label>Fin (HH:MM:SS ou secondes) <Required /></Label>
           <Input name="end_time" placeholder="00:02:45" value={end} onChange={setEnd} />
         </div>
       </div>
@@ -114,11 +129,13 @@ function ExtractForm() {
   )
 }
 
-function CropForm() {
+function CropForm({ onReady }: { onReady: (ok: boolean) => void }) {
   const fileRef  = useRef<HTMLInputElement>(null)
   const [file,   setFile]   = useState<File | null>(null)
   const [gpu,    setGpu]    = useState(true)
   const [crop,   setCrop]   = useState<CropValues>({ top: 0, bottom: 0, left: 0, right: 0 })
+
+  useEffect(() => { onReady(file !== null) }, [file, onReady])
 
   const handleCropChange = useCallback((v: CropValues) => setCrop(v), [])
 
@@ -128,7 +145,7 @@ function CropForm() {
     <div className="space-y-4">
       {/* Upload vidéo */}
       <div>
-        <Label>Vidéo source</Label>
+        <Label>Vidéo source <Required /></Label>
         <input
           ref={fileRef}
           type="file"
@@ -191,13 +208,17 @@ function CropForm() {
   )
 }
 
-function MergeForm() {
+function MergeForm({ onReady }: { onReady: (ok: boolean) => void }) {
+  const [files,   setFiles]   = useState(false)
   const [reverse, setReverse] = useState(false)
+
+  useEffect(() => { onReady(files) }, [files, onReady])
+
   return (
     <div className="space-y-4">
       <div>
-        <Label>Vidéos à fusionner (ordre alphabétique par défaut)</Label>
-        <FileInput name="video_files" label="Choisir plusieurs vidéos" accept="video/*" multiple />
+        <Label>Vidéos à fusionner <Required /></Label>
+        <FileInput name="video_files" label="Choisir plusieurs vidéos" accept="video/*" multiple onPicked={setFiles} />
       </div>
       <Checkbox name="reverse_order" label="Inverser l'ordre" checked={reverse} onChange={setReverse} />
       <input type="hidden" name="reverse_order" value={reverse ? 'true' : 'false'} />
@@ -205,17 +226,22 @@ function MergeForm() {
   )
 }
 
-function PodcastForm({ config }: { config: AppConfig }) {
+function PodcastForm({ config, onReady }: { config: AppConfig; onReady: (ok: boolean) => void }) {
+  const [bg,    setBg]    = useState(false)
+  const [audio, setAudio] = useState(false)
   const [speed, setSpeed] = useState('1.0')
+
+  useEffect(() => { onReady(bg && audio) }, [bg, audio, onReady])
+
   return (
     <div className="space-y-4">
       <div>
-        <Label>Vidéo de fond (background_video)</Label>
-        <FileInput name="background_video" label="Choisir la vidéo de fond" accept="video/*" />
+        <Label>Vidéo de fond <Required /></Label>
+        <FileInput name="background_video" label="Choisir la vidéo de fond" accept="video/*" onPicked={setBg} />
       </div>
       <div>
-        <Label>Audio / Vidéo source</Label>
-        <FileInput name="audio_file" label="Choisir audio ou vidéo" accept="audio/*,video/*" />
+        <Label>Audio / Vidéo source <Required /></Label>
+        <FileInput name="audio_file" label="Choisir audio ou vidéo" accept="audio/*,video/*" onPicked={setAudio} />
       </div>
       <div>
         <Label>Vitesse audio</Label>
@@ -229,7 +255,9 @@ function PodcastForm({ config }: { config: AppConfig }) {
   )
 }
 
-function WaveForm({ config }: { config: AppConfig }) {
+function WaveForm({ config, onReady }: { config: AppConfig; onReady: (ok: boolean) => void }) {
+  const [audio,      setAudio]      = useState(false)
+  const [mini,       setMini]       = useState(false)
   const [waveStyle,  setWaveStyle]  = useState('sine')
   const [videoMode,  setVideoMode]  = useState('audio')
   const [speed,      setSpeed]      = useState('1.0')
@@ -237,14 +265,18 @@ function WaveForm({ config }: { config: AppConfig }) {
 
   const needsMini = videoMode === 'mini' || videoMode === 'hybrid'
 
+  useEffect(() => {
+    onReady(audio && (!needsMini || mini))
+  }, [audio, mini, needsMini, onReady])
+
   return (
     <div className="space-y-4">
       <div>
-        <Label>Audio / Vidéo source</Label>
-        <FileInput name="audio_file" label="Choisir audio ou vidéo" accept="audio/*,video/*" />
+        <Label>Audio / Vidéo source <Required /></Label>
+        <FileInput name="audio_file" label="Choisir audio ou vidéo" accept="audio/*,video/*" onPicked={setAudio} />
       </div>
       <div>
-        <Label>Vidéo de fond (optionnel — fond noir si absent)</Label>
+        <Label>Vidéo de fond <span className="text-gray-500 font-normal">(optionnel — fond noir si absent)</span></Label>
         <FileInput name="background_video" label="Choisir la vidéo de fond" accept="video/*" />
       </div>
       <div className="grid grid-cols-2 gap-4">
@@ -283,27 +315,31 @@ function WaveForm({ config }: { config: AppConfig }) {
       </div>
       {needsMini && (
         <div>
-          <Label>Vidéo du mini-overlay (requise pour mode mini/hybrid)</Label>
-          <FileInput name="content_video" label="Choisir la vidéo à afficher" accept="video/*" />
+          <Label>Vidéo du mini-overlay <Required /> <span className="text-gray-500 font-normal">(requise pour mode mini/hybrid)</span></Label>
+          <FileInput name="content_video" label="Choisir la vidéo à afficher" accept="video/*" onPicked={setMini} />
         </div>
       )}
     </div>
   )
 }
 
-function PortraitForm() {
+function PortraitForm({ onReady }: { onReady: (ok: boolean) => void }) {
+  const [bg,           setBg]           = useState(false)
+  const [content,      setContent]      = useState(false)
   const [audioOnly,    setAudioOnly]    = useState(false)
   const [borderColor,  setBorderColor]  = useState('white')
+
+  useEffect(() => { onReady(bg && content) }, [bg, content, onReady])
 
   return (
     <div className="space-y-4">
       <div>
-        <Label>Vidéo de fond 1080×1920 (background)</Label>
-        <FileInput name="background_video" label="Choisir la vidéo de fond" accept="video/*" />
+        <Label>Vidéo de fond 1080×1920 <Required /></Label>
+        <FileInput name="background_video" label="Choisir la vidéo de fond" accept="video/*" onPicked={setBg} />
       </div>
       <div>
-        <Label>Contenu à intégrer (vidéo ou audio)</Label>
-        <FileInput name="content_video" label="Choisir vidéo ou audio" accept="audio/*,video/*" />
+        <Label>Contenu à intégrer (vidéo ou audio) <Required /></Label>
+        <FileInput name="content_video" label="Choisir vidéo ou audio" accept="audio/*,video/*" onPicked={setContent} />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div>
@@ -334,15 +370,21 @@ const STYLE_ICONS: Record<string, string> = {
 
 export default function NewJob() {
   const navigate = useNavigate()
-  const [config, setConfig]   = useState<AppConfig | null>(null)
-  const [style,  setStyle]    = useState('extract')
-  const [title,  setTitle]    = useState('')
+  const [config,  setConfig]  = useState<AppConfig | null>(null)
+  const [style,   setStyle]   = useState('extract')
+  const [title,   setTitle]   = useState('')
   const [loading, setLoading] = useState(false)
   const [error,   setError]   = useState<string | null>(null)
+  const [canSubmit, setCanSubmit] = useState(false)
+
+  const onReady = useCallback((ok: boolean) => setCanSubmit(ok), [])
 
   useEffect(() => {
     fetchConfig().then(setConfig).catch(() => setError('Backend inaccessible'))
   }, [])
+
+  // Reset validité quand on change de style
+  useEffect(() => { setCanSubmit(false) }, [style])
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -412,12 +454,12 @@ export default function NewJob() {
 
         <hr className="border-gray-800" />
 
-        {style === 'extract'  && <ExtractForm />}
-        {style === 'crop'     && <CropForm />}
-        {style === 'merge'    && <MergeForm />}
-        {style === 'podcast'  && <PodcastForm config={config} />}
-        {style === 'wave'     && <WaveForm config={config} />}
-        {style === 'portrait' && <PortraitForm />}
+        {style === 'extract'  && <ExtractForm  onReady={onReady} />}
+        {style === 'crop'     && <CropForm     onReady={onReady} />}
+        {style === 'merge'    && <MergeForm    onReady={onReady} />}
+        {style === 'podcast'  && <PodcastForm  config={config} onReady={onReady} />}
+        {style === 'wave'     && <WaveForm     config={config} onReady={onReady} />}
+        {style === 'portrait' && <PortraitForm onReady={onReady} />}
 
         {error && (
           <div className="bg-red-900/30 border border-red-700 rounded-lg px-4 py-3 text-sm text-red-300">
@@ -425,14 +467,21 @@ export default function NewJob() {
           </div>
         )}
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="flex items-center gap-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium px-6 py-2.5 rounded-xl transition-colors"
-        >
-          <Play size={16} />
-          {loading ? 'Lancement...' : 'Lancer le job'}
-        </button>
+        <div className="flex items-center gap-4">
+          <button
+            type="submit"
+            disabled={loading || !canSubmit}
+            className="flex items-center gap-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium px-6 py-2.5 rounded-xl transition-colors"
+          >
+            <Play size={16} />
+            {loading ? 'Lancement...' : 'Lancer le job'}
+          </button>
+          {!canSubmit && !loading && (
+            <p className="text-xs text-gray-500">
+              Sélectionnez les fichiers requis <span className="text-red-400">*</span> pour continuer
+            </p>
+          )}
+        </div>
       </form>
     </div>
   )
