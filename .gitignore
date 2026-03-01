@@ -1,0 +1,104 @@
+# =============================================================================
+# PYTHON
+# =============================================================================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environment
+venv/
+.venv/
+env/
+ENV/
+
+# Env files
+.env
+.env.*
+
+# =============================================================================
+# DOSSIERS DE TRAVAIL (inputs — fichiers placés manuellement)
+# =============================================================================
+working_dir_wave/
+working_dir_wave_sub/
+working_dir_podcast/
+working_dir_extractor/
+working_dir_merger/
+working_dir_cropper/
+
+# =============================================================================
+# DOSSIERS DE SORTIE (outputs générés — vidéos produites)
+# =============================================================================
+video_generator_wave_output/
+video_generator_wave_sub_output/
+video_generator_podcast_output/
+simple_extractor_output/
+simple_merger_output/
+simple_cropper_output/
+cropped_videos/
+clips/
+clips_enhanced/
+extracted_clips/
+
+# Sous-titres générés
+subs_generator/output/
+
+# =============================================================================
+# VIDEOMAKER — FUTURE APP FASTAPI + REACT
+# =============================================================================
+
+# Backend
+VideoMaker/backend/jobs.db
+
+# Outputs jobs (garder le .gitkeep)
+VideoMaker/outputs/*
+!VideoMaker/outputs/.gitkeep
+
+# Frontend
+VideoMaker/frontend/node_modules/
+VideoMaker/frontend/dist/
+VideoMaker/frontend/.vite/
+
+# =============================================================================
+# MÉDIAS LOURDS (éviter d'accidentellement committer des vidéos/audios)
+# =============================================================================
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.wmv
+*.flv
+*.webm
+*.mp3
+*.wav
+*.aac
+*.flac
+*.m4a
+
+# Exception : garder les .gitkeep dans les dossiers vides
+!.gitkeep
+
+# =============================================================================
+# IDE ET OUTILS
+# =============================================================================
+.vscode/
+.idea/
+*.suo
+*.user
+Thumbs.db
+.DS_Store
+
+# Cursor (garder le dossier .cursor/rules/ s'il existe)
+.cursor/
+
+# =============================================================================
+# LOGS ET TEMPORAIRES
+# =============================================================================
+*.log
+*.tmp
+temp_*

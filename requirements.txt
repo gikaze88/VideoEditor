@@ -1,0 +1,43 @@
+# Requirements pour Clip_Extractor
+# Installation: pip install -r requirements.txt
+
+# ========================================
+# Traitement Audio/Vidéo
+# ========================================
+openai-whisper>=20231117
+
+# ========================================
+# PyTorch - IMPORTANT: Choisir CPU ou GPU
+# ========================================
+# 
+# OPTION 1: CPU uniquement (plus simple, mais plus lent)
+# Décommentez les lignes suivantes:
+# torch>=2.0.0
+# torchvision>=0.15.0
+# torchaudio>=2.0.0
+#
+# OPTION 2: GPU avec CUDA (recommandé pour Whisper - 10-20x plus rapide)
+# Pour CUDA 12.1 (compatible RTX 4000):
+# pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+#
+# Pour CUDA 11.8:
+# pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+#
+# ⚠️  NE PAS installer les deux versions en même temps !
+# Si PyTorch CPU est déjà installé, désinstallez-le d'abord:
+# pip uninstall torch torchvision torchaudio
+# Puis installez la version CUDA avec la commande ci-dessus
+
+# ========================================
+# Autres dépendances (si nécessaires)
+# ========================================
+# ffmpeg-python  # Si tu veux manipuler FFmpeg via Python
+# numpy          # Souvent installé automatiquement avec torch
+# Pillow         # Si tu manipules des images
+
+# ========================================
+# VÉRIFICATION APRÈS INSTALLATION
+# ========================================
+# Vérifier que CUDA est disponible:
+# python -c "import torch; print(f'PyTorch: {torch.__version__}'); print(f'CUDA: {torch.cuda.is_available()}'); print(f'GPU: {torch.cuda.get_device_name(0) if torch.cuda.is_available() else \"N/A\"}')"
+

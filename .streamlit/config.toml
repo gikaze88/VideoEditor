@@ -1,0 +1,13 @@
+[server]
+# Augmenter la limite d'upload de 200MB (défaut) à 2GB
+maxUploadSize = 2000
+
+# Port par défaut
+port = 8501
+
+# Désactiver le message de développement
+headless = true
+
+[browser]
+# Ouvrir automatiquement le navigateur
+gatherUsageStats = false
