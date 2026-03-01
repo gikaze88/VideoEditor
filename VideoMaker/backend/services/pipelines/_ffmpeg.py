@@ -1,7 +1,16 @@
 """
-Utilitaire FFmpeg partagé par tous les pipelines.
-Lance FFmpeg en streamant chaque ligne vers le fichier log en temps réel
-→ le frontend peut voir la progression dès que FFmpeg écrit.
+Utilitaire FFmpeg — compatible Windows/threads background.
+
+Approche : stdout + stderr redirigés DIRECTEMENT dans le fichier log
+(pas de pipe Python), stdin fermé via DEVNULL.
+
+Pourquoi :
+- stdin=DEVNULL → FFmpeg ne bloque jamais en attendant une saisie clavier
+- stdout/stderr → fichier directement → pas de buffering Python, le log
+  est visible en temps réel dès que le frontend poll (sans pipe qui tient
+  tout en mémoire jusqu'à la fin du process)
+- Évite le problème Windows où l'itération `for line in proc.stdout`
+  bloque car FFmpeg écrit avec \\r (carriage return) pas \\n
 """
 import subprocess
 from pathlib import Path
@@ -9,35 +18,28 @@ from pathlib import Path
 
 def run_ffmpeg(cmd: list, log_path: Path) -> int:
     """
-    Lance FFmpeg et écrit chaque ligne de sortie dans log_path immédiatement.
-    Retourne le code de retour du process.
+    Lance FFmpeg et retourne son code de sortie.
+    Toute la sortie (stdout + stderr) va directement dans log_path.
     """
     str_cmd = [str(c) for c in cmd]
 
-    with open(log_path, "a", encoding="utf-8", errors="replace") as log:
-        log.write(f"\n$ {' '.join(str_cmd)}\n")
-        log.flush()
+    # Entête en mode texte
+    with open(log_path, "a", encoding="utf-8", errors="replace") as f:
+        f.write(f"\n$ {' '.join(str_cmd)}\n")
 
+    # Lancer FFmpeg — stdout/stderr vont directement dans le fichier log (binaire)
+    with open(log_path, "ab") as f:
         proc = subprocess.Popen(
             str_cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            bufsize=1,          # line-buffered
+            stdin=subprocess.DEVNULL,   # critique : empêche FFmpeg de bloquer sur stdin
+            stdout=f,                   # sortie directement dans le fichier
+            stderr=f,                   # idem pour les erreurs / la progression
         )
-
-        for line in proc.stdout:
-            log.write(line)
-            log.flush()         # écriture immédiate → polling frontend voit la progression
-
-        proc.wait()
-        return proc.returncode
+        return proc.wait()
 
 
 def check_ffmpeg(cmd: list, log_path: Path, error_msg: str):
-    """Lance FFmpeg et lève RuntimeError si le code de retour != 0."""
+    """Lance FFmpeg, lève RuntimeError si le code de retour != 0."""
     code = run_ffmpeg(cmd, log_path)
     if code != 0:
-        raise RuntimeError(f"{error_msg} (code {code})")
+        raise RuntimeError(f"{error_msg} (code FFmpeg: {code})")
