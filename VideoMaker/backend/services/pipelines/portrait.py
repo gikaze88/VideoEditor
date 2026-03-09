@@ -1,11 +1,15 @@
 """
 Pipeline: portrait
 Génère une vidéo portrait 1080×1920 avec mini-vidéo centrée.
+
+Version VideoMaker :
+- Log UTF-8 (évite les erreurs 'charmap' sous Windows)
+- Encodage CPU (libx264 medium) avec option GPU (h264_nvenc) + fallback automatique
 """
 import subprocess
 import os
 from pathlib import Path
-from ._ffmpeg import check_ffmpeg
+from ._ffmpeg import check_ffmpeg, run_ffmpeg
 
 CANVAS_W    = 1080
 CANVAS_H    = 1920
@@ -35,11 +39,12 @@ def run(job_id: str, params: dict, output_dir: Path, log_path: Path) -> Path:
     content    = params["content_path"]
     audio_only = params.get("audio_only", False)
     border_col = params.get("border_color", "white")
+    use_gpu    = bool(params.get("use_gpu", True))
 
-    with open(log_path, "a") as log:
+    with open(log_path, "a", encoding="utf-8", errors="replace") as log:
         log.write(f"[portrait] bg={bg_path}\n")
         log.write(f"[portrait] content={content}\n")
-        log.write(f"[portrait] audio_only={audio_only}\n")
+        log.write(f"[portrait] audio_only={audio_only} gpu={use_gpu}\n")
         log.flush()
 
     # 1. Extraire l'audio
@@ -58,19 +63,25 @@ def run(job_id: str, params: dict, output_dir: Path, log_path: Path) -> Path:
     loops     = int(duration / bg_dur) + 1
     looped_bg = str(output_dir / f"bg_{job_id}.mp4")
 
-    with open(log_path, "a") as log:
+    with open(log_path, "a", encoding="utf-8", errors="replace") as log:
         log.write(f"[portrait] durée={duration:.1f}s boucles={loops}\n")
         log.flush()
 
+    # Préparation du background (CPU, car coût raisonnable)
     check_ffmpeg(
-        ["ffmpeg", "-y",
-         "-stream_loop", str(loops), "-i", bg_path,
-         "-t", str(duration),
-         "-vf", f"scale={CANVAS_W}:{CANVAS_H}:force_original_aspect_ratio=increase,"
-                f"crop={CANVAS_W}:{CANVAS_H}",
-         "-c:v", "libx264", "-preset", "medium", "-crf", "23", "-an",
-         looped_bg],
-        log_path, "Boucle background échouée"
+        [
+            "ffmpeg", "-y",
+            "-stream_loop", str(loops), "-i", bg_path,
+            "-t", str(duration),
+            "-vf", (
+                f"scale={CANVAS_W}:{CANVAS_H}:force_original_aspect_ratio=increase,"
+                f"crop={CANVAS_W}:{CANVAS_H}"
+            ),
+            "-c:v", "libx264", "-preset", "medium", "-crf", "23", "-an",
+            looped_bg,
+        ],
+        log_path,
+        "Boucle background échouée",
     )
 
     output_file = output_dir / f"portrait_{job_id}.mp4"
@@ -95,15 +106,52 @@ def run(job_id: str, params: dict, output_dir: Path, log_path: Path) -> Path:
             f"pad={MAX_MINI_W + bw2}:{MAX_MINI_H + bw2}:{BORDER_W}:{BORDER_W}:color={border_col}[mini];"
             f"[0:v][mini]overlay={border_x}:{border_y}[outv]"
         )
+
+        # Tentative GPU (h264_nvenc) inspirée de video_generator_simple / crop
+        if use_gpu:
+            cmd_gpu = [
+                "ffmpeg", "-y",
+                "-i", looped_bg, "-i", content, "-i", audio_path,
+                "-filter_complex", vf,
+                "-map", "[outv]", "-map", "2:a",
+                "-c:v", "h264_nvenc",
+                "-preset", "p4",
+                "-tune", "hq",
+                "-rc", "vbr",
+                "-cq", "19",
+                "-b:v", "0",
+                "-maxrate", "15M",
+                "-bufsize", "30M",
+                "-pix_fmt", "yuv420p",
+                "-c:a", "aac", "-b:a", "192k",
+                "-shortest",
+                str(output_file),
+            ]
+            code = run_ffmpeg(cmd_gpu, log_path)
+            if code == 0:
+                with open(log_path, "a", encoding="utf-8", errors="replace") as log:
+                    log.write(f"[portrait] ✓ GPU réussi → {output_file}\n")
+                return output_file
+
+            with open(log_path, "a", encoding="utf-8", errors="replace") as log:
+                log.write(f"[portrait] GPU échoué (code {code}) — fallback CPU...\n")
+                log.flush()
+
+        # Fallback CPU (libx264 medium, qualité un peu meilleure que background)
         check_ffmpeg(
-            ["ffmpeg", "-y",
-             "-i", looped_bg, "-i", content, "-i", audio_path,
-             "-filter_complex", vf,
-             "-map", "[outv]", "-map", "2:a",
-             "-c:v", "libx264", "-preset", "medium", "-crf", "21",
-             "-c:a", "aac", "-b:a", "192k", "-pix_fmt", "yuv420p", "-shortest",
-             str(output_file)],
-            log_path, "Assemblage portrait échoué"
+            [
+                "ffmpeg", "-y",
+                "-i", looped_bg, "-i", content, "-i", audio_path,
+                "-filter_complex", vf,
+                "-map", "[outv]", "-map", "2:a",
+                "-c:v", "libx264", "-preset", "medium", "-crf", "21",
+                "-c:a", "aac", "-b:a", "192k",
+                "-pix_fmt", "yuv420p",
+                "-shortest",
+                str(output_file),
+            ],
+            log_path,
+            "Assemblage portrait échoué",
         )
 
     try:
@@ -111,7 +159,7 @@ def run(job_id: str, params: dict, output_dir: Path, log_path: Path) -> Path:
     except Exception:
         pass
 
-    with open(log_path, "a") as log:
+    with open(log_path, "a", encoding="utf-8", errors="replace") as log:
         log.write(f"[portrait] ✓ → {output_file}\n")
 
     return output_file

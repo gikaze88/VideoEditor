@@ -349,6 +349,7 @@ function PortraitForm({ onReady, preselectedJobId }: {
   const [content,      setContent]      = useState(!!preselectedJobId)
   const [audioOnly,    setAudioOnly]    = useState(false)
   const [borderColor,  setBorderColor]  = useState('white')
+  const [useGpu,       setUseGpu]       = useState(true)
 
   useEffect(() => { onReady(bg && content) }, [bg, content, onReady])
 
@@ -378,9 +379,18 @@ function PortraitForm({ onReady, preselectedJobId }: {
             ))}
           </Select>
         </div>
+        <div className="pt-6">
+          <Checkbox
+            name="use_gpu"
+            label="Utiliser le GPU (h264_nvenc) si disponible"
+            checked={useGpu}
+            onChange={setUseGpu}
+          />
+        </div>
       </div>
       <Checkbox name="audio_only" label="Mode audio pur (pas de mini-vidéo)" checked={audioOnly} onChange={setAudioOnly} />
       <input type="hidden" name="audio_only" value={audioOnly ? 'true' : 'false'} />
+      <input type="hidden" name="use_gpu" value={useGpu ? 'true' : 'false'} />
     </div>
   )
 }

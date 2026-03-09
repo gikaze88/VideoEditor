@@ -215,6 +215,7 @@ async def create_job(
             "content_path": saved.get("content_path") or saved.get("audio_path"),
             "audio_only": audio_only.lower() == "true",
             "border_color": border_color,
+            "use_gpu": use_gpu.lower() == "true",
         }
     elif style == "debate_single":
         params = {

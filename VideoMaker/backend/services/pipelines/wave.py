@@ -2,6 +2,10 @@
 Pipeline: wave — waveform animée + fond vidéo.
 Modes: audio | mini | hybrid
 Styles: sine, bars, point, p2p, spectrum, spectrum_line, rainbow
+
+Version VideoMaker :
+- Log UTF-8 (évite les erreurs 'charmap')
+- Encodage CPU (libx264) avec option GPU (h264_nvenc) pour l'assemblage final + fallback
 """
 import subprocess
 import os
@@ -58,9 +62,10 @@ def run(job_id: str, params: dict, output_dir: Path, log_path: Path) -> Path:
     mini_path  = params.get("content_video_path")
     speed      = float(params.get("speed_factor", 1.0))
     color      = params.get("wave_color", "white")
+    use_gpu   = bool(params.get("use_gpu", True))
 
-    with open(log_path, "a") as log:
-        log.write(f"[wave] style={style} mode={mode} speed={speed} color={color}\n")
+    with open(log_path, "a", encoding="utf-8", errors="replace") as log:
+        log.write(f"[wave] style={style} mode={mode} speed={speed} color={color} gpu={use_gpu}\n")
         log.flush()
 
     # 1. Extraire audio si besoin
@@ -86,7 +91,7 @@ def run(job_id: str, params: dict, output_dir: Path, log_path: Path) -> Path:
     duration = _get_duration(audio_path)
     looped_bg = str(output_dir / f"bg_{job_id}.mp4")
 
-    with open(log_path, "a") as log:
+    with open(log_path, "a", encoding="utf-8", errors="replace") as log:
         log.write(f"[wave] durée={duration:.1f}s\n")
         log.flush()
 
@@ -117,6 +122,7 @@ def run(job_id: str, params: dict, output_dir: Path, log_path: Path) -> Path:
     wf = _wave_filter(style, CANVAS_W, WAVE_H, color)
     output_file = output_dir / f"wave_{style}_{job_id}.mp4"
 
+    # Construction du filtre et des commandes (CPU par défaut)
     if mode in ("mini", "hybrid") and mini_path:
         mini_x = (CANVAS_W - MINI_W) // 2
         vf = (
@@ -125,38 +131,67 @@ def run(job_id: str, params: dict, output_dir: Path, log_path: Path) -> Path:
             f"[bg_mini][2:a]{wf}[wave];"
             f"[bg_mini][wave]overlay=0:{WAVE_Y}[outv]"
         )
-        cmd = [
+        base_cmd = [
             "ffmpeg", "-y",
             "-i", looped_bg, "-i", mini_path, "-i", audio_path,
             "-filter_complex", vf,
             "-map", "[outv]", "-map", "2:a",
-            "-c:v", "libx264", "-preset", "medium", "-crf", "22",
-            "-c:a", "aac", "-b:a", "192k", "-shortest",
-            str(output_file),
         ]
     else:
         vf = (
             f"[0:v][1:a]{wf}[wave];"
             f"[0:v][wave]overlay=0:{WAVE_Y}[outv]"
         )
-        cmd = [
+        base_cmd = [
             "ffmpeg", "-y",
             "-i", looped_bg, "-i", audio_path,
             "-filter_complex", vf,
             "-map", "[outv]", "-map", "1:a",
-            "-c:v", "libx264", "-preset", "medium", "-crf", "22",
-            "-c:a", "aac", "-b:a", "192k", "-shortest",
-            str(output_file),
         ]
 
-    check_ffmpeg(cmd, log_path, "Assemblage wave échoué")
+    # Tentative GPU
+    if use_gpu:
+        cmd_gpu = [
+            *base_cmd,
+            "-c:v", "h264_nvenc",
+            "-preset", "p4",
+            "-tune", "hq",
+            "-rc", "vbr",
+            "-cq", "19",
+            "-b:v", "0",
+            "-maxrate", "15M",
+            "-bufsize", "30M",
+            "-pix_fmt", "yuv420p",
+            "-c:a", "aac", "-b:a", "192k",
+            "-shortest",
+            str(output_file),
+        ]
+        code = run_ffmpeg(cmd_gpu, log_path)
+        if code == 0:
+            with open(log_path, "a", encoding="utf-8", errors="replace") as log:
+                log.write(f"[wave] ✓ GPU réussi → {output_file}\n")
+            return output_file
+
+        with open(log_path, "a", encoding="utf-8", errors="replace") as log:
+            log.write(f"[wave] GPU échoué (code {code}) — fallback CPU...\n")
+            log.flush()
+
+    # Fallback CPU
+    cmd_cpu = [
+        *base_cmd,
+        "-c:v", "libx264", "-preset", "medium", "-crf", "22",
+        "-c:a", "aac", "-b:a", "192k",
+        "-shortest",
+        str(output_file),
+    ]
+    check_ffmpeg(cmd_cpu, log_path, "Assemblage wave échoué")
 
     try:
         os.remove(looped_bg)
     except Exception:
         pass
 
-    with open(log_path, "a") as log:
+    with open(log_path, "a", encoding="utf-8", errors="replace") as log:
         log.write(f"[wave] ✓ → {output_file}\n")
 
     return output_file
