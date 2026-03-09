@@ -23,9 +23,17 @@ def init_db():
                 output_video_path TEXT,
                 output_dir      TEXT,
                 log_file        TEXT,
-                error_message   TEXT
+                error_message   TEXT,
+                youtube_video_id TEXT,
+                youtube_status   TEXT
             )
         """)
+        # Migration légère pour anciens schémas (ajout colonnes YouTube si manquantes)
+        cols = {row["name"] for row in conn.execute("PRAGMA table_info(jobs)")}
+        if "youtube_video_id" not in cols:
+            conn.execute("ALTER TABLE jobs ADD COLUMN youtube_video_id TEXT")
+        if "youtube_status" not in cols:
+            conn.execute("ALTER TABLE jobs ADD COLUMN youtube_status TEXT")
         conn.commit()
 
 

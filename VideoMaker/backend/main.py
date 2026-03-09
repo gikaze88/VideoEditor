@@ -11,6 +11,7 @@ from .database import init_db
 from .routers import jobs as jobs_router
 from .routers import assets as assets_router
 from .routers import sources as sources_router
+from .routers import youtube as youtube_router
 from .config import OUTPUTS_DIR, PROJECT_ROOT
 
 app = FastAPI(title="VideoMaker API", version="1.0.0")
@@ -33,6 +34,7 @@ def on_startup():
 app.include_router(jobs_router.router)
 app.include_router(assets_router.router)
 app.include_router(sources_router.router)
+app.include_router(youtube_router.router)
 
 # 4. Servir les outputs (vidéos générées)
 app.mount("/outputs", StaticFiles(directory=str(OUTPUTS_DIR)), name="outputs")

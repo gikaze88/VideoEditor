@@ -72,6 +72,92 @@ export async function fetchPrepJobs(): Promise<PrepJob[]> {
   return r.json()
 }
 
+// ─── YouTube API ───────────────────────────────────────────────────────────────
+
+export interface YoutubePlaylist {
+  id: string
+  title: string
+}
+
+export interface YoutubeUploadResult {
+  video_id: string
+  url: string
+  studio_url: string
+  privacy: string
+  logs: string[]
+}
+
+export interface YoutubeJobStatus {
+  youtube_video_id: string | null
+  youtube_status: string | null
+  url: string | null
+  studio_url: string | null
+}
+
+export async function getYoutubeAuthStatus(): Promise<{ authenticated: boolean }> {
+  const r = await fetch(`${BASE}/youtube/auth-status`)
+  if (!r.ok) throw new Error('Erreur statut YouTube')
+  return r.json()
+}
+
+export async function initiateYoutubeAuth(): Promise<{ authenticated: boolean; message: string }> {
+  const r = await fetch(`${BASE}/youtube/auth`, { method: 'POST' })
+  if (!r.ok) throw new Error('Erreur authentification YouTube')
+  return r.json()
+}
+
+export async function revokeYoutubeToken(): Promise<void> {
+  const r = await fetch(`${BASE}/youtube/revoke`, { method: 'POST' })
+  if (!r.ok) throw new Error('Erreur révocation YouTube')
+}
+
+export async function getYoutubePlaylists(): Promise<YoutubePlaylist[]> {
+  const r = await fetch(`${BASE}/youtube/playlists`)
+  if (!r.ok) throw new Error('Erreur récupération playlists')
+  const data = await r.json()
+  return data.playlists ?? []
+}
+
+export async function uploadToYoutube(
+  jobId: string,
+  params: {
+    title: string
+    description: string
+    tags: string
+    privacy: string
+    categoryId: string
+    playlistId: string
+    filename: string
+    thumbnail?: File
+  },
+): Promise<YoutubeUploadResult> {
+  const fd = new FormData()
+  fd.set('title', params.title)
+  fd.set('description', params.description)
+  fd.set('tags', params.tags)
+  fd.set('privacy', params.privacy)
+  fd.set('category_id', params.categoryId)
+  fd.set('playlist_id', params.playlistId)
+  fd.set('filename', params.filename)
+  if (params.thumbnail) fd.set('thumbnail', params.thumbnail)
+
+  const r = await fetch(`${BASE}/youtube/upload/${jobId}`, {
+    method: 'POST',
+    body: fd,
+  })
+  if (!r.ok) {
+    const txt = await r.text()
+    throw new Error(txt || 'Erreur upload YouTube')
+  }
+  return r.json()
+}
+
+export async function getYoutubeJobStatus(jobId: string): Promise<YoutubeJobStatus> {
+  const r = await fetch(`${BASE}/youtube/job/${jobId}`)
+  if (!r.ok) throw new Error('Erreur statut YouTube')
+  return r.json()
+}
+
 export async function fetchConfig(): Promise<AppConfig> {
   const r = await fetch('/api/assets/config')
   if (!r.ok) throw new Error('Erreur config')

@@ -14,6 +14,10 @@ SOURCES_DIR.mkdir(exist_ok=True)
 # Base de données SQLite
 DB_PATH = Path(__file__).parent / "jobs.db"
 
+# YouTube API (client OAuth installé)
+CLIENT_SECRETS_PATH = PROJECT_ROOT / "client_secrets.json"
+YOUTUBE_TOKEN_PATH  = PROJECT_ROOT / "youtube_token.json"
+
 # Accélération audio disponible
 AVAILABLE_SPEED_FACTORS = [1.0, 1.25, 1.5]
 

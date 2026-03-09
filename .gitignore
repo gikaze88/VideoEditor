@@ -21,6 +21,9 @@ ENV/
 .env
 .env.*
 
+# YouTube OAuth token
+youtube_token.json
+
 # =============================================================================
 # DOSSIERS DE TRAVAIL (inputs — fichiers placés manuellement)
 # =============================================================================
