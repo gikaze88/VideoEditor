@@ -15,10 +15,11 @@ CANVAS_W    = 1080
 CANVAS_H    = 1920
 LOGO_H      = 960
 SPACING_TOP = 100
-MAX_MINI_H  = 760
-MAX_MINI_W  = 680
+SPACING_BOTTOM = 100
+MAX_MINI_H  = 760   # hauteur dispo entre logo et bas (identique à l'original)
+MIN_VIDEO_W = 600
+MAX_VIDEO_W = 680
 BORDER_W    = 3
-MINI_Y      = LOGO_H + SPACING_TOP
 
 
 def _get_duration(path: str) -> float:
@@ -28,6 +29,28 @@ def _get_duration(path: str) -> float:
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
     )
     return float(r.stdout.strip())
+
+
+def _get_dimensions(path: str) -> tuple[int, int, float]:
+    """Retourne (w, h, ratio) de la vidéo, comme dans le script original."""
+    r = subprocess.run(
+        [
+            "ffprobe", "-v", "error",
+            "-select_streams", "v:0",
+            "-show_entries", "stream=width,height",
+            "-of", "default=noprint_wrappers=1:nokey=1",
+            path,
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    lines = [l for l in r.stdout.splitlines() if l.strip()]
+    if len(lines) < 2:
+        raise RuntimeError(f"Dimensions introuvables pour {path}")
+    w = int(lines[0].strip())
+    h = int(lines[1].strip())
+    return w, h, w / h
 
 
 def _is_video(path: str) -> bool:
@@ -96,14 +119,55 @@ def run(job_id: str, params: dict, output_dir: Path, log_path: Path) -> Path:
             log_path, "Assemblage audio échoué"
         )
     else:
+        # Calcul des dimensions de la mini‑vidéo exactement comme dans video_generator_simple.py
+        src_w, src_h, src_ratio = _get_dimensions(content)
+
+        # Espace dispo vertical pour la mini (entre logo et bas)
+        available_h = CANVAS_H - LOGO_H - SPACING_TOP - SPACING_BOTTOM
+        assert int(available_h) == MAX_MINI_H
+
+        # Largeur max théorique
+        width_from_max        = MAX_VIDEO_W
+        height_from_max_width = int(MAX_VIDEO_W / src_ratio)
+
+        height_from_max       = MAX_MINI_H
+        width_from_max_height = int(MAX_MINI_H * src_ratio)
+
+        if height_from_max_width <= MAX_MINI_H:
+            ideal_w = width_from_max
+            ideal_h = height_from_max_width
+        else:
+            ideal_w = width_from_max_height
+            ideal_h = height_from_max
+
+        if ideal_w < MIN_VIDEO_W:
+            mini_w = MIN_VIDEO_W
+            mini_h = MAX_MINI_H
+            # Scale en largeur fixe puis crop vertical centré (supprime les bandes noires internes)
+            crop_filter = (
+                f"scale={mini_w}:-1,"
+                f"crop={mini_w}:{mini_h}:0:(in_h-{mini_h})/2"
+            )
+        else:
+            mini_w = ideal_w
+            mini_h = ideal_h
+            crop_filter = f"scale={mini_w}:{mini_h}"
+
         bw2 = BORDER_W * 2
-        border_x = (CANVAS_W - (MAX_MINI_W + bw2)) // 2
-        border_y = MINI_Y - BORDER_W
+        mini_total_w = mini_w + bw2
+        mini_total_h = mini_h + bw2
+
+        # Position horizontale : centré
+        border_x = (CANVAS_W - mini_total_w) // 2
+
+        # Position verticale : centré dans la zone disponible sous le logo
+        remaining = available_h - mini_total_h
+        vertical_center = int(remaining // 2)
+        border_y = LOGO_H + SPACING_TOP + vertical_center
+
         vf = (
-            f"[1:v]scale={MAX_MINI_W}:{MAX_MINI_H}:"
-            f"force_original_aspect_ratio=decrease,"
-            f"pad={MAX_MINI_W}:{MAX_MINI_H}:(ow-iw)/2:(oh-ih)/2,"
-            f"pad={MAX_MINI_W + bw2}:{MAX_MINI_H + bw2}:{BORDER_W}:{BORDER_W}:color={border_col}[mini];"
+            f"[1:v]{crop_filter},"
+            f"pad={mini_total_w}:{mini_total_h}:{BORDER_W}:{BORDER_W}:color={border_col}[mini];"
             f"[0:v][mini]overlay={border_x}:{border_y}[outv]"
         )
 
