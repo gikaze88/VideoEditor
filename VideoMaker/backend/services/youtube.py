@@ -1,19 +1,25 @@
 """
-Service d'intégration YouTube (OAuth + upload).
+Service d'intégration YouTube (OAuth web-redirect + upload).
 
-Basé sur le flux InstalledApp / Desktop app :
-- client_secrets.json à la racine du projet
-- youtube_token.json généré après le premier login (non versionné)
+Flux OAuth "web-redirect" :
+1. Le backend génère une URL d'autorisation Google (get_auth_url)
+2. Le frontend ouvre cette URL dans un nouvel onglet du navigateur en cours
+3. Google redirige vers http://localhost:8001/api/youtube/oauth-callback?code=...
+4. Le backend échange le code contre un token (exchange_code)
+5. Le frontend poll /api/youtube/auth-status pour détecter la connexion
+
+Avantage: l'utilisateur est redirigé dans le navigateur qu'il utilise déjà,
+ce qui lui permet de choisir le compte Google correspondant.
 """
 from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Callable, List, Dict, Optional
+from typing import Callable, Dict, List, Optional
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
+from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from googleapiclient.errors import HttpError
@@ -25,6 +31,10 @@ SCOPES = [
     "https://www.googleapis.com/auth/youtube",
 ]
 
+OAUTH_REDIRECT_URI = "http://localhost:8001/api/youtube/oauth-callback"
+
+
+# ─── Credentials management ──────────────────────────────────────────────────
 
 def _load_credentials() -> Optional[Credentials]:
     if not YOUTUBE_TOKEN_PATH.exists():
@@ -56,30 +66,74 @@ def is_authenticated() -> bool:
     return False
 
 
-def get_credentials() -> Credentials:
-    """Retourne des credentials valides, en lançant le flux OAuth si besoin."""
+def _get_valid_credentials() -> Credentials:
+    """Retourne des credentials valides (refresh si nécessaire). Lève si absent."""
     creds = _load_credentials()
-
-    if creds and creds.expired and creds.refresh_token:
+    if not creds:
+        raise RuntimeError("Non authentifié — lancez le flux OAuth d'abord.")
+    if creds.expired and creds.refresh_token:
         creds.refresh(Request())
         _save_credentials(creds)
-        return creds
-
-    if not CLIENT_SECRETS_PATH.exists():
-        raise RuntimeError("client_secrets.json introuvable à la racine du projet.")
-
-    flow = InstalledAppFlow.from_client_secrets_file(
-        str(CLIENT_SECRETS_PATH),
-        SCOPES,
-    )
-    # Ouvre le navigateur local pour autoriser l'appli
-    creds = flow.run_local_server(port=0)
-    _save_credentials(creds)
     return creds
 
 
+# ─── OAuth web-redirect flow ─────────────────────────────────────────────────
+
+import threading
+
+_pending_flow: Optional[Flow] = None
+_flow_lock = threading.Lock()
+
+
+def _create_flow() -> Flow:
+    """Crée un Flow OAuth avec redirect URI pointant vers le backend."""
+    if not CLIENT_SECRETS_PATH.exists():
+        raise RuntimeError("client_secrets.json introuvable dans le dossier VideoMaker.")
+
+    flow = Flow.from_client_secrets_file(
+        str(CLIENT_SECRETS_PATH),
+        scopes=SCOPES,
+        redirect_uri=OAUTH_REDIRECT_URI,
+    )
+    return flow
+
+
+def get_auth_url() -> str:
+    """Génère l'URL d'autorisation Google que le frontend ouvrira dans un onglet.
+
+    Le Flow est conservé en mémoire pour être réutilisé par exchange_code()
+    (le state OAuth doit correspondre).
+    """
+    global _pending_flow
+    flow = _create_flow()
+    auth_url, _ = flow.authorization_url(
+        access_type="offline",
+        include_granted_scopes="true",
+        prompt="consent",
+    )
+    with _flow_lock:
+        _pending_flow = flow
+    return auth_url
+
+
+def exchange_code(code: str) -> None:
+    """Échange le code d'autorisation contre un token et le sauvegarde."""
+    global _pending_flow
+    with _flow_lock:
+        flow = _pending_flow
+        _pending_flow = None
+
+    if flow is None:
+        flow = _create_flow()
+
+    flow.fetch_token(code=code)
+    _save_credentials(flow.credentials)
+
+
+# ─── YouTube API client ───────────────────────────────────────────────────────
+
 def get_youtube_client():
-    creds = get_credentials()
+    creds = _get_valid_credentials()
     return build("youtube", "v3", credentials=creds, cache_discovery=False)
 
 
@@ -102,6 +156,8 @@ def get_playlists() -> List[Dict[str, str]]:
     return playlists
 
 
+# ─── Upload ───────────────────────────────────────────────────────────────────
+
 def upload_video(
     video_path: Path,
     title: str,
@@ -113,9 +169,7 @@ def upload_video(
     playlist_id: Optional[str] = None,
     log_callback: Optional[Callable[[str], None]] = None,
 ) -> str:
-    """
-    Upload une vidéo sur YouTube et retourne son video_id.
-    """
+    """Upload une vidéo sur YouTube et retourne son video_id."""
     def log(msg: str) -> None:
         if log_callback:
             log_callback(msg)
@@ -149,29 +203,27 @@ def upload_video(
     )
 
     response = None
-    log("📤 Début de l'upload vers YouTube...")
+    log("Upload YouTube en cours...")
     while response is None:
         status, response = request.next_chunk()
         if status:
             pct = int(status.progress() * 100)
-            log(f"   ▸ Upload {pct}%")
+            log(f"   Upload {pct}%")
 
     video_id = response["id"]
-    log(f"✅ Vidéo uploadée, id={video_id}")
+    log(f"Video uploadee, id={video_id}")
 
-    # Thumbnail
     if thumbnail_path is not None and thumbnail_path.exists():
         try:
-            log("🖼️ Envoi de la miniature...")
+            log("Envoi de la miniature...")
             thumb_media = MediaFileUpload(str(thumbnail_path))
             yt.thumbnails().set(videoId=video_id, media_body=thumb_media).execute()
         except HttpError:
-            log("⚠️ Impossible de définir la miniature (erreur YouTube).")
+            log("Impossible de definir la miniature (erreur YouTube).")
 
-    # Playlist
     if playlist_id:
         try:
-            log(f"📂 Ajout à la playlist {playlist_id}...")
+            log(f"Ajout a la playlist {playlist_id}...")
             yt.playlistItems().insert(
                 part="snippet",
                 body={
@@ -185,7 +237,6 @@ def upload_video(
                 },
             ).execute()
         except HttpError:
-            log("⚠️ Impossible d'ajouter la vidéo à la playlist.")
+            log("Impossible d'ajouter la video a la playlist.")
 
     return video_id
-

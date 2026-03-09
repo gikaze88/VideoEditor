@@ -1,11 +1,20 @@
 """
-Router YouTube : authentification OAuth et upload d'une vidéo issue d'un job.
+Router YouTube : authentification OAuth (web-redirect) et upload de vidéos.
+
+Flux OAuth :
+  1. GET  /api/youtube/auth-url        → retourne { auth_url }
+  2. Frontend ouvre auth_url dans un nouvel onglet (même navigateur)
+  3. Google redirige vers GET /api/youtube/oauth-callback?code=...&state=...
+  4. Le backend échange le code, sauvegarde le token, affiche une page HTML
+     qui ferme l'onglet automatiquement.
+  5. Le frontend poll /api/youtube/auth-status pour détecter la connexion.
 """
 from pathlib import Path
 from typing import Optional, List
 
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, BackgroundTasks
 from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import HTMLResponse
 
 from ..database import get_connection, row_to_dict
 from ..config import OUTPUTS_DIR, YOUTUBE_TOKEN_PATH
@@ -22,16 +31,54 @@ def _get_job_or_404(job_id: str) -> dict:
     return row_to_dict(row)
 
 
+# ─── OAuth endpoints ──────────────────────────────────────────────────────────
+
 @router.get("/auth-status")
 def auth_status():
     return {"authenticated": yt_service.is_authenticated()}
 
 
-@router.post("/auth")
-async def auth():
-    # Lance le flux OAuth dans un thread bloquant
-    await run_in_threadpool(yt_service.get_credentials)
-    return {"authenticated": True, "message": "Authentification YouTube réussie"}
+@router.get("/auth-url")
+async def auth_url():
+    """Retourne l'URL Google à ouvrir dans le navigateur de l'utilisateur."""
+    url = await run_in_threadpool(yt_service.get_auth_url)
+    return {"auth_url": url}
+
+
+@router.get("/oauth-callback")
+async def oauth_callback(code: str = "", error: str = ""):
+    """Callback appelé par Google après autorisation. Échange le code et ferme l'onglet."""
+    if error:
+        html = f"""<!DOCTYPE html><html><body>
+        <h2>Erreur d'authentification</h2><p>{error}</p>
+        <p>Vous pouvez fermer cet onglet.</p>
+        </body></html>"""
+        return HTMLResponse(content=html, status_code=400)
+
+    if not code:
+        raise HTTPException(status_code=400, detail="Paramètre 'code' manquant")
+
+    try:
+        await run_in_threadpool(yt_service.exchange_code, code)
+    except Exception as exc:
+        html = f"""<!DOCTYPE html><html><body>
+        <h2>Erreur lors de l'échange du code</h2><p>{exc}</p>
+        <p>Vous pouvez fermer cet onglet.</p>
+        </body></html>"""
+        return HTMLResponse(content=html, status_code=500)
+
+    html = """<!DOCTYPE html>
+<html>
+<head><title>Authentification YouTube</title></head>
+<body style="font-family:system-ui;display:flex;justify-content:center;align-items:center;height:100vh;margin:0;background:#0f172a;color:white;">
+  <div style="text-align:center;">
+    <h2 style="color:#22c55e;">Authentification reussie !</h2>
+    <p>Vous pouvez fermer cet onglet.<br>L'application a bien recu votre autorisation.</p>
+    <script>setTimeout(()=>window.close(),2000);</script>
+  </div>
+</body>
+</html>"""
+    return HTMLResponse(content=html)
 
 
 @router.post("/revoke")
@@ -41,10 +88,12 @@ def revoke():
     return {"revoked": True}
 
 
+# ─── Playlists & Upload ──────────────────────────────────────────────────────
+
 @router.get("/playlists")
 async def playlists():
     if not yt_service.is_authenticated():
-        raise HTTPException(status_code=401, detail="Non authentifié sur YouTube")
+        raise HTTPException(status_code=401, detail="Non authentifie sur YouTube")
     pls = await run_in_threadpool(yt_service.get_playlists)
     return {"playlists": pls}
 
@@ -64,28 +113,25 @@ async def upload_job_video(
 ):
     job = _get_job_or_404(job_id)
     if job["status"] != "completed":
-        raise HTTPException(status_code=400, detail="Job pas encore terminé")
+        raise HTTPException(status_code=400, detail="Job pas encore termine")
 
-    # Résoudre le fichier vidéo à uploader
     base_dir = Path(job["output_dir"] or OUTPUTS_DIR / job_id)
     if filename:
         video_path = base_dir / filename
     else:
         if not job.get("output_video_path"):
-            raise HTTPException(status_code=400, detail="Chemin vidéo de sortie introuvable")
+            raise HTTPException(status_code=400, detail="Chemin video de sortie introuvable")
         video_path = Path(job["output_video_path"])
 
     if not video_path.exists():
-        raise HTTPException(status_code=404, detail=f"Fichier vidéo introuvable: {video_path.name}")
+        raise HTTPException(status_code=404, detail=f"Fichier video introuvable: {video_path.name}")
 
-    # Sauvegarder la miniature si fournie
     thumb_path: Optional[Path] = None
     if thumbnail is not None and thumbnail.filename:
         thumb_path = base_dir / f"thumb_{job_id}{Path(thumbnail.filename).suffix or '.jpg'}"
         with open(thumb_path, "wb") as f:
             f.write(await thumbnail.read())
 
-    # Construire les tags
     tags_list: List[str] = [t.strip() for t in tags.split(",")] if tags else []
 
     logs: List[str] = []
@@ -113,7 +159,7 @@ async def upload_job_video(
                     (video_id, "uploaded", job_id),
                 )
                 conn.commit()
-            logs.append("✅ Upload YouTube terminé")
+            logs.append("Upload YouTube termine")
             return {
                 "video_id": video_id,
                 "url": f"https://youtu.be/{video_id}",
@@ -128,10 +174,9 @@ async def upload_job_video(
                     ("failed", job_id),
                 )
                 conn.commit()
-            logs.append(f"❌ Erreur upload YouTube: {exc}")
+            logs.append(f"Erreur upload YouTube: {exc}")
             raise
 
-    # On exécute réellement l'upload dans le même handler (pour renvoyer le résultat)
     result = await do_upload()
     return result
 
@@ -154,4 +199,3 @@ def youtube_job_status(job_id: str):
         "url": f"https://youtu.be/{vid}",
         "studio_url": f"https://studio.youtube.com/video/{vid}/edit",
     }
-

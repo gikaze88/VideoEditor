@@ -100,10 +100,11 @@ export async function getYoutubeAuthStatus(): Promise<{ authenticated: boolean }
   return r.json()
 }
 
-export async function initiateYoutubeAuth(): Promise<{ authenticated: boolean; message: string }> {
-  const r = await fetch(`${BASE}/youtube/auth`, { method: 'POST' })
-  if (!r.ok) throw new Error('Erreur authentification YouTube')
-  return r.json()
+export async function getYoutubeAuthUrl(): Promise<string> {
+  const r = await fetch(`${BASE}/youtube/auth-url`)
+  if (!r.ok) throw new Error('Erreur generation URL YouTube')
+  const data = await r.json()
+  return data.auth_url
 }
 
 export async function revokeYoutubeToken(): Promise<void> {

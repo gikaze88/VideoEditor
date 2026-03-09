@@ -10,7 +10,7 @@ import {
   type JobLogs,
   type Job,
   getYoutubeAuthStatus,
-  initiateYoutubeAuth,
+  getYoutubeAuthUrl,
   getYoutubePlaylists,
   uploadToYoutube,
   getYoutubeJobStatus,
@@ -157,20 +157,37 @@ export default function JobDetail() {
     setYtForm(prev => ({ ...prev, [key]: value }))
   }
 
+  const authPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
   async function handleYoutubeAuth() {
     try {
       setYtError(null)
-      await initiateYoutubeAuth()
-      const st = await getYoutubeAuthStatus()
-      setYtAuth(st.authenticated)
-      if (st.authenticated) {
-        const pls = await getYoutubePlaylists()
-        setYtPlaylists(pls)
-      }
+      const url = await getYoutubeAuthUrl()
+      window.open(url, '_blank')
+
+      if (authPollRef.current) clearInterval(authPollRef.current)
+      authPollRef.current = setInterval(async () => {
+        try {
+          const st = await getYoutubeAuthStatus()
+          if (st.authenticated) {
+            if (authPollRef.current) clearInterval(authPollRef.current)
+            authPollRef.current = null
+            setYtAuth(true)
+            const pls = await getYoutubePlaylists()
+            setYtPlaylists(pls)
+          }
+        } catch { /* ignore poll errors */ }
+      }, 2000)
     } catch (e) {
       setYtError(e instanceof Error ? e.message : 'Erreur OAuth YouTube')
     }
   }
+
+  useEffect(() => {
+    return () => {
+      if (authPollRef.current) clearInterval(authPollRef.current)
+    }
+  }, [])
 
   async function handleYoutubeUpload() {
     if (!id || !data || !jobMeta) return
