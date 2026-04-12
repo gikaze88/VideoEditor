@@ -3,12 +3,17 @@ Pipeline: wave — waveform animée + fond vidéo.
 Modes: audio | mini | hybrid
 Styles: sine, bars, point, p2p, spectrum, spectrum_line, rainbow
 
-Version VideoMaker :
-- Log UTF-8 (évite les erreurs 'charmap')
-- Encodage CPU (libx264) avec option GPU (h264_nvenc) pour l'assemblage final + fallback
+Correction décalage audio/vidéo :
+- L'ancien code extrayait l'audio en MP3 (libmp3lame) avant l'assemblage.
+  Ce ré-encodage introduit un délai d'encodeur et une dérive sur longue durée.
+- Fix : l'audio est pris directement depuis le fichier source (1:a ou 2:a).
+  Si le fichier source est une vidéo, l'audio est extrait dans le filter_complex.
+  L'atempo (accélération) est appliqué directement dans le filter_complex,
+  avec asplit pour alimenter à la fois la waveform et le stream de sortie.
+  → aucun ré-encodage intermédiaire, sync parfaite.
 """
-import subprocess
 import os
+import subprocess
 from pathlib import Path
 from ._ffmpeg import check_ffmpeg, run_ffmpeg
 
@@ -36,6 +41,7 @@ def _get_duration(path: str) -> float:
         ["ffprobe", "-v", "error", "-show_entries", "format=duration",
          "-of", "default=noprint_wrappers=1:nokey=1", path],
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+        stdin=subprocess.DEVNULL,
     )
     return float(r.stdout.strip())
 
@@ -62,40 +68,26 @@ def run(job_id: str, params: dict, output_dir: Path, log_path: Path) -> Path:
     mini_path  = params.get("content_video_path")
     speed      = float(params.get("speed_factor", 1.0))
     color      = params.get("wave_color", "white")
-    use_gpu   = bool(params.get("use_gpu", True))
+    use_gpu    = bool(params.get("use_gpu", True))
 
     with open(log_path, "a", encoding="utf-8", errors="replace") as log:
         log.write(f"[wave] style={style} mode={mode} speed={speed} color={color} gpu={use_gpu}\n")
         log.flush()
 
-    # 1. Extraire audio si besoin
-    if _is_video(input_path):
-        audio_path = str(output_dir / f"audio_{job_id}.mp3")
-        check_ffmpeg(
-            ["ffmpeg", "-y", "-i", input_path, "-vn", "-acodec", "libmp3lame", "-q:a", "2", audio_path],
-            log_path, "Extraction audio échouée"
-        )
-    else:
-        audio_path = input_path
+    # Durée prise directement depuis le fichier source (pas de MP3 intermédiaire)
+    duration = _get_duration(input_path)
 
-    # 2. Accélération
     if speed != 1.0:
-        sped = str(output_dir / f"audio_sped_{job_id}.mp3")
-        check_ffmpeg(
-            ["ffmpeg", "-y", "-i", audio_path, "-filter:a", f"atempo={speed}",
-             "-acodec", "libmp3lame", "-q:a", "2", sped],
-            log_path, "Accélération échouée"
-        )
-        audio_path = sped
-
-    duration = _get_duration(audio_path)
-    looped_bg = str(output_dir / f"bg_{job_id}.mp4")
+        # La durée réelle après accélération (pour la longueur du background)
+        duration = duration / speed
 
     with open(log_path, "a", encoding="utf-8", errors="replace") as log:
         log.write(f"[wave] durée={duration:.1f}s\n")
         log.flush()
 
-    # 3. Background
+    looped_bg = str(output_dir / f"bg_{job_id}.mp4")
+
+    # Background
     if bg_path:
         bg_dur = _get_duration(bg_path)
         loops  = int(duration / bg_dur) + 1
@@ -118,36 +110,74 @@ def run(job_id: str, params: dict, output_dir: Path, log_path: Path) -> Path:
             log_path, "Génération fond noir échouée"
         )
 
-    # 4. Assemblage final
-    wf = _wave_filter(style, CANVAS_W, WAVE_H, color)
+    # Assemblage final
+    wf       = _wave_filter(style, CANVAS_W, WAVE_H, color)
     output_file = output_dir / f"wave_{style}_{job_id}.mp4"
 
-    # Construction du filtre et des commandes (CPU par défaut)
+    # Construction du filter_complex et des inputs.
+    # L'audio est pris directement depuis input_path (video ou audio) sans re-encodage.
+    # L'atempo est appliqué dans le filter_complex si speed != 1.0,
+    # avec asplit pour alimenter à la fois la waveform et la sortie audio.
     if mode in ("mini", "hybrid") and mini_path:
         mini_x = (CANVAS_W - MINI_W) // 2
+        # inputs: [0]=looped_bg, [1]=mini_path(video), [2]=input_path(audio/video)
+        audio_label = "[2:a]"
+        if speed != 1.0:
+            # atempo dans le filter_complex, asplit pour waveform + output
+            speed_prefix = f"{audio_label}atempo={speed},asplit=2[awave][aout];"
+            wave_audio   = "[awave]"
+            out_audio    = "[aout]"
+        else:
+            speed_prefix = ""
+            wave_audio   = audio_label
+            out_audio    = audio_label
+
         vf = (
+            f"{speed_prefix}"
             f"[1:v]scale={MINI_W}:{MINI_H}[mini];"
             f"[0:v][mini]overlay={mini_x}:{MINI_Y}[bg_mini];"
-            f"[bg_mini][2:a]{wf}[wave];"
+            f"[bg_mini]{wave_audio}{wf}[wave];"
             f"[bg_mini][wave]overlay=0:{WAVE_Y}[outv]"
         )
         base_cmd = [
             "ffmpeg", "-y",
-            "-i", looped_bg, "-i", mini_path, "-i", audio_path,
+            "-i", looped_bg, "-i", mini_path, "-i", input_path,
             "-filter_complex", vf,
-            "-map", "[outv]", "-map", "2:a",
+            "-map", "[outv]",
         ]
+        if speed != 1.0:
+            base_cmd += ["-map", out_audio]
+        else:
+            base_cmd += ["-map", "2:a"]
+
     else:
+        # Mode audio uniquement
+        # inputs: [0]=looped_bg, [1]=input_path(audio/video)
+        audio_label = "[1:a]"
+        if speed != 1.0:
+            speed_prefix = f"{audio_label}atempo={speed},asplit=2[awave][aout];"
+            wave_audio   = "[awave]"
+            out_audio    = "[aout]"
+        else:
+            speed_prefix = ""
+            wave_audio   = audio_label
+            out_audio    = audio_label
+
         vf = (
-            f"[0:v][1:a]{wf}[wave];"
+            f"{speed_prefix}"
+            f"[0:v]{wave_audio}{wf}[wave];"
             f"[0:v][wave]overlay=0:{WAVE_Y}[outv]"
         )
         base_cmd = [
             "ffmpeg", "-y",
-            "-i", looped_bg, "-i", audio_path,
+            "-i", looped_bg, "-i", input_path,
             "-filter_complex", vf,
-            "-map", "[outv]", "-map", "1:a",
+            "-map", "[outv]",
         ]
+        if speed != 1.0:
+            base_cmd += ["-map", out_audio]
+        else:
+            base_cmd += ["-map", "1:a"]
 
     # Tentative GPU
     if use_gpu:
@@ -162,25 +192,26 @@ def run(job_id: str, params: dict, output_dir: Path, log_path: Path) -> Path:
             "-maxrate", "15M",
             "-bufsize", "30M",
             "-pix_fmt", "yuv420p",
-            "-c:a", "aac", "-b:a", "192k",
+            "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
             "-shortest",
             str(output_file),
         ]
         code = run_ffmpeg(cmd_gpu, log_path)
         if code == 0:
             with open(log_path, "a", encoding="utf-8", errors="replace") as log:
-                log.write(f"[wave] ✓ GPU réussi → {output_file}\n")
+                log.write(f"[wave] GPU reussi -> {output_file}\n")
             return output_file
 
         with open(log_path, "a", encoding="utf-8", errors="replace") as log:
-            log.write(f"[wave] GPU échoué (code {code}) — fallback CPU...\n")
+            log.write(f"[wave] GPU echoue (code {code}) - fallback CPU...\n")
             log.flush()
 
     # Fallback CPU
     cmd_cpu = [
         *base_cmd,
         "-c:v", "libx264", "-preset", "medium", "-crf", "22",
-        "-c:a", "aac", "-b:a", "192k",
+        "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
+        "-pix_fmt", "yuv420p",
         "-shortest",
         str(output_file),
     ]
@@ -192,6 +223,6 @@ def run(job_id: str, params: dict, output_dir: Path, log_path: Path) -> Path:
         pass
 
     with open(log_path, "a", encoding="utf-8", errors="replace") as log:
-        log.write(f"[wave] ✓ → {output_file}\n")
+        log.write(f"[wave] OK -> {output_file}\n")
 
     return output_file
