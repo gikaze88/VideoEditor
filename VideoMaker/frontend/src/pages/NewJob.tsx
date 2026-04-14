@@ -722,19 +722,15 @@ function PortraitForm({ onReady, preselectedJobId }: {
 /** Diagramme visuel de la disposition des speakers sur le fond */
 /**
  * Preview dynamique pour les formulaires débat.
- * Reproduit fidèlement les positions et tailles du backend (composite_*.py).
  * Canvas 1920×1080 → miniature 260×146px.
+ *
+ * Double   : blocs clampés aux bords du canvas, jamais de débordement.
+ * Diagonal : positions distribuées dynamiquement le long de la diagonale
+ *            pour éviter les chevauchements, tout en restant dans les bords.
  */
 function DebateSizePreview({ type, size }: { type: 'single' | 'double' | 'diagonal'; size: string }) {
-  // Constantes identiques aux pipelines backend
   const OUT_W = 1920
   const OUT_H = 1080
-  // Positions fixes (en % du canvas, copiées des pipelines Python)
-  const DOUBLE_LEFT   = { x: 2.6,  y: 4.6  }
-  const DOUBLE_RIGHT  = { x: 62.4, y: 60.4 }
-  const DIAG_LEFT     = { x: 5,    y: 8    }
-  const DIAG_CENTER   = { x: 36,   y: 36   }
-  const DIAG_RIGHT    = { x: 67,   y: 64   }
 
   const previewW = 260
   const previewH = Math.round(previewW * OUT_H / OUT_W)  // 146px
@@ -743,20 +739,60 @@ function DebateSizePreview({ type, size }: { type: 'single' | 'double' | 'diagon
   const sizePct = parseInt(size) / 100
   const w = OUT_W * sizePct * scale
   const h = OUT_H * sizePct * scale
+  const M = 3  // marge intérieure en px preview
 
-  // Single : centré
-  const singleX = (OUT_W * (1 - sizePct) / 2) * scale
-  const singleY = (OUT_H * (1 - sizePct) / 2) * scale
-
-  const px = (pct: number, dim: number) => dim * pct / 100 * scale
-
-  const blockStyle = (x: number, y: number) => ({
-    position: 'absolute' as const,
-    left: x, top: y, width: w, height: h,
-    transition: 'left 0.12s ease, top 0.12s ease, width 0.12s ease, height 0.12s ease',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    borderRadius: 3,
+  // Clamp une position (top-left) pour garder le bloc dans le canvas
+  const clamp = (rawX: number, rawY: number) => ({
+    x: Math.max(M, Math.min(previewW - w - M, rawX)),
+    y: Math.max(M, Math.min(previewH - h - M, rawY)),
   })
+
+  // Coordonnée brute depuis un % backend
+  const raw = (pctX: number, pctY: number) =>
+    clamp(OUT_W * pctX / 100 * scale, OUT_H * pctY / 100 * scale)
+
+  // ── Single ── centré
+  const single = clamp((previewW - w) / 2, (previewH - h) / 2)
+
+  // ── Double ── positions backend clampées → jamais de débordement
+  const dL = raw(2.6,  4.6 )
+  const dR = raw(62.4, 60.4)
+
+  // ── Diagonal ── distribution dynamique anti-chevauchement
+  // On répartit 3 blocs le long de la diagonale en utilisant l'espace disponible
+  // (maxX = previewW - w - M, maxY = previewH - h - M)
+  const maxX = previewW - w - M
+  const maxY = previewH - h - M
+  // Fractions t=[0..1] sur la diagonale pour G / C / D
+  // On espace les blocs de sorte qu'ils ne se chevauchent pas.
+  // L'espacement minimal entre deux top-left pour qu'ils ne se touchent pas : (w+2)/(maxX)
+  const stepX = Math.max((w + 4) / maxX, 0.33)   // fraction minimale entre blocs
+  const stepY = Math.max((h + 4) / maxY, 0.33)
+  // Centre reste au milieu, gauche et droite s'écartent d'un step
+  const tCx = 0.5
+  const tGx = Math.max(0, tCx - stepX)
+  const tDx = Math.min(1, tCx + stepX)
+  const tCy = 0.5
+  const tGy = Math.max(0, tCy - stepY)
+  const tDy = Math.min(1, tCy + stepY)
+
+  const diagG = clamp(M + tGx * maxX, M + tGy * maxY)
+  const diagC = clamp(M + tCx * maxX, M + tCy * maxY)
+  const diagD = clamp(M + tDx * maxX, M + tDy * maxY)
+
+  const transition = 'left 0.12s ease, top 0.12s ease, width 0.12s ease, height 0.12s ease'
+
+  const block = (pos: { x: number; y: number }, bg: string, border: string, label: string, z = 1) => (
+    <div style={{
+      position: 'absolute',
+      left: pos.x, top: pos.y, width: w, height: h,
+      background: bg, border: `1px solid ${border}`,
+      borderRadius: 3, zIndex: z, transition,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }}>
+      <span className="text-[8px] text-white font-bold">{label}</span>
+    </div>
+  )
 
   return (
     <div
@@ -768,47 +804,16 @@ function DebateSizePreview({ type, size }: { type: 'single' | 'double' | 'diagon
         fond
       </span>
 
-      {/* Single */}
-      {type === 'single' && (
-        <div style={{ ...blockStyle(singleX, singleY), background: 'rgba(139,92,246,0.80)', border: '1px solid rgba(167,139,250,0.9)' }}>
-          <span className="text-[8px] text-white font-bold">speaker</span>
-        </div>
-      )}
+      {type === 'single' && block(single, 'rgba(139,92,246,0.82)', 'rgba(167,139,250,0.9)', 'speaker')}
 
-      {/* Double — gauche */}
-      {type === 'double' && (
-        <div style={{ ...blockStyle(px(DOUBLE_LEFT.x, OUT_W), px(DOUBLE_LEFT.y, OUT_H)), background: 'rgba(59,130,246,0.80)', border: '1px solid rgba(96,165,250,0.9)' }}>
-          <span className="text-[8px] text-white font-bold">G</span>
-        </div>
-      )}
-      {/* Double — droite */}
-      {type === 'double' && (
-        <div style={{ ...blockStyle(px(DOUBLE_RIGHT.x, OUT_W), px(DOUBLE_RIGHT.y, OUT_H)), background: 'rgba(245,158,11,0.80)', border: '1px solid rgba(251,191,36,0.9)' }}>
-          <span className="text-[8px] text-white font-bold">D</span>
-        </div>
-      )}
+      {type === 'double' && block(dL, 'rgba(59,130,246,0.82)',  'rgba(96,165,250,0.9)',  'G', 2)}
+      {type === 'double' && block(dR, 'rgba(245,158,11,0.82)',  'rgba(251,191,36,0.9)',  'D', 2)}
 
-      {/* Diagonal — gauche */}
-      {type === 'diagonal' && (
-        <div style={{ ...blockStyle(px(DIAG_LEFT.x, OUT_W), px(DIAG_LEFT.y, OUT_H)), background: 'rgba(59,130,246,0.80)', border: '1px solid rgba(96,165,250,0.9)' }}>
-          <span className="text-[8px] text-white font-bold">G</span>
-        </div>
-      )}
-      {/* Diagonal — centre */}
-      {type === 'diagonal' && (
-        <div style={{ ...blockStyle(px(DIAG_CENTER.x, OUT_W), px(DIAG_CENTER.y, OUT_H)), background: 'rgba(16,185,129,0.80)', border: '1px solid rgba(52,211,153,0.9)' }}>
-          <span className="text-[8px] text-white font-bold">C</span>
-        </div>
-      )}
-      {/* Diagonal — droite */}
-      {type === 'diagonal' && (
-        <div style={{ ...blockStyle(px(DIAG_RIGHT.x, OUT_W), px(DIAG_RIGHT.y, OUT_H)), background: 'rgba(245,158,11,0.80)', border: '1px solid rgba(251,191,36,0.9)' }}>
-          <span className="text-[8px] text-white font-bold">D</span>
-        </div>
-      )}
+      {type === 'diagonal' && block(diagG, 'rgba(59,130,246,0.82)',  'rgba(96,165,250,0.9)',  'G', 1)}
+      {type === 'diagonal' && block(diagC, 'rgba(16,185,129,0.82)',  'rgba(52,211,153,0.9)',  'C', 2)}
+      {type === 'diagonal' && block(diagD, 'rgba(245,158,11,0.82)',  'rgba(251,191,36,0.9)',  'D', 3)}
 
-      {/* Indicateur de taille */}
-      <div className="absolute bottom-1 right-1.5">
+      <div className="absolute bottom-1 right-1.5" style={{ zIndex: 10 }}>
         <span className="text-[8px] text-gray-500 font-mono">{size}%</span>
       </div>
     </div>
