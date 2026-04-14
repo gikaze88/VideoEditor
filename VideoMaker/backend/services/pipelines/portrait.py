@@ -69,56 +69,22 @@ def _is_video(path: str) -> bool:
     return Path(path).suffix.lower() in {".mp4", ".avi", ".mov", ".mkv", ".flv", ".wmv", ".webm"}
 
 
-def _parse_position(position: str) -> tuple[str, str]:
-    """Retourne (h_align, v_align) depuis un preset de position.
-
-    Exemples :
-        "top-left"     → ("left",   "top")
-        "center"       → ("center", "center")
-        "bottom-right" → ("right",  "bottom")
-    """
-    pos = position.lower().strip()
-    # aliases simples
-    if pos in ("top", "bottom"):
-        return "center", pos
-    if pos in ("left", "right"):
-        return pos, "center"
-    if pos == "center":
-        return "center", "center"
-
-    parts = pos.split("-")
-    v = next((p for p in parts if p in ("top", "bottom", "center")), "center")
-    h = next((p for p in parts if p in ("left", "right", "center")), "center")
-    return h, v
-
-
-def _compute_position(
+def _compute_position_pct(
     mini_total_w: int, mini_total_h: int,
-    h_align: str, v_align: str,
+    x_pct: float, y_pct: float,
 ) -> tuple[int, int]:
-    """Calcule (border_x, border_y) dans le canvas portrait.
+    """Calcule (border_x, border_y) depuis des pourcentages de position (0.0 – 1.0).
 
-    Zone disponible pour la mini-vidéo : de LOGO_H+SPACING_TOP à CANVAS_H-SPACING_BOTTOM.
+    x_pct / y_pct représentent le centre de la mini-vidéo relativement au canvas.
+      x=0.50, y=0.75 → centre de la mini-vidéo à (540 px, 1440 px)
+                       ce qui correspond au centre de la zone mini-vidéo par défaut.
+
+    Le résultat est clampé pour ne jamais dépasser les bords (EDGE_MARGIN).
     """
-    zone_top = LOGO_H + SPACING_TOP
-    zone_h   = CANVAS_H - SPACING_BOTTOM - zone_top
-    remaining_h = max(0, zone_h - mini_total_h)
-    remaining_w = CANVAS_W - mini_total_w
-
-    if h_align == "left":
-        bx = EDGE_MARGIN
-    elif h_align == "right":
-        bx = max(EDGE_MARGIN, CANVAS_W - mini_total_w - EDGE_MARGIN)
-    else:
-        bx = max(0, remaining_w // 2)
-
-    if v_align == "top":
-        by = zone_top + EDGE_MARGIN
-    elif v_align == "bottom":
-        by = zone_top + max(0, remaining_h - EDGE_MARGIN)
-    else:
-        by = zone_top + remaining_h // 2
-
+    bx = int(CANVAS_W * x_pct - mini_total_w / 2)
+    by = int(CANVAS_H * y_pct - mini_total_h / 2)
+    bx = max(EDGE_MARGIN, min(CANVAS_W - mini_total_w - EDGE_MARGIN, bx))
+    by = max(EDGE_MARGIN, min(CANVAS_H - mini_total_h - EDGE_MARGIN, by))
     return bx, by
 
 
@@ -129,15 +95,16 @@ def run(job_id: str, params: dict, output_dir: Path, log_path: Path) -> Path:
     border_col = params.get("border_color", "white")
     use_gpu    = bool(params.get("use_gpu", True))
     size_pct   = max(10, min(100, int(params.get("size_percent", 90))))
-    position   = params.get("position", "center")
-
-    h_align, v_align = _parse_position(position)
+    # Position : pourcentages X/Y (0–100) représentant le centre de la mini-vidéo
+    # Défaut : x=50% (centré), y=75% (centre de la zone mini-vidéo historique)
+    pos_x_pct  = max(0.0, min(1.0, float(params.get("position_x_pct", 50)) / 100))
+    pos_y_pct  = max(0.0, min(1.0, float(params.get("position_y_pct", 75)) / 100))
 
     with open(log_path, "a", encoding="utf-8", errors="replace") as log:
         log.write(f"[portrait] bg={bg_path}\n")
         log.write(f"[portrait] content={content}\n")
         log.write(f"[portrait] audio_only={audio_only} gpu={use_gpu}\n")
-        log.write(f"[portrait] size_percent={size_pct} position={position} ({h_align},{v_align})\n")
+        log.write(f"[portrait] size_percent={size_pct} pos_x={pos_x_pct:.2f} pos_y={pos_y_pct:.2f}\n")
         log.flush()
 
     # Durée prise directement sur le fichier content (pas d'extraction MP3)
@@ -220,7 +187,7 @@ def run(job_id: str, params: dict, output_dir: Path, log_path: Path) -> Path:
         mini_total_w = mini_w + bw2
         mini_total_h = mini_h + bw2
 
-        border_x, border_y = _compute_position(mini_total_w, mini_total_h, h_align, v_align)
+        border_x, border_y = _compute_position_pct(mini_total_w, mini_total_h, pos_x_pct, pos_y_pct)
 
         with open(log_path, "a", encoding="utf-8", errors="replace") as log:
             log.write(f"[portrait] mini={mini_w}x{mini_h} pos=({border_x},{border_y})\n")
