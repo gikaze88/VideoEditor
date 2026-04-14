@@ -96,12 +96,22 @@ def _compute_position(
     mini_total_w: int, mini_total_h: int,
     h_align: str, v_align: str,
 ) -> tuple[int, int]:
-    """Calcule (border_x, border_y) sur le canvas portrait complet (1080×1920).
+    """Calcule (border_x, border_y) avec 3 étapes progressives sur le canvas.
 
-    La grille 3×3 adresse l'intégralité du canvas : la mini-vidéo peut être
-    placée n'importe où. La position par défaut ('bottom') la positionne en
-    bas du canvas, ce qui correspond au comportement historique.
+    Horizontal — 3 étapes de gauche à droite :
+      left   → bord gauche du canvas
+      center → centré horizontalement
+      right  → bord droit du canvas
+
+    Vertical — 3 étapes progressives :
+      top    → bord supérieur du canvas (haut absolu)
+      center → centré dans la zone mini-vidéo historique (défaut)
+      bottom → bord inférieur du canvas (bas absolu)
+
+    La zone mini-vidéo historique correspond à LOGO_H+SPACING_TOP … CANVAS_H-SPACING_BOTTOM.
+    Le centre de la grille (center/center) reproduit exactement l'ancien comportement.
     """
+    # ── Horizontal ──────────────────────────────────────────────────────────
     if h_align == "left":
         bx = EDGE_MARGIN
     elif h_align == "right":
@@ -109,12 +119,18 @@ def _compute_position(
     else:
         bx = max(0, (CANVAS_W - mini_total_w) // 2)
 
+    # ── Vertical ─────────────────────────────────────────────────────────────
+    # Ancre : centre de la zone mini-vidéo (LOGO_H+SPACING_TOP … CANVAS_H-SPACING_BOTTOM)
+    zone_top    = LOGO_H + SPACING_TOP
+    zone_bottom = CANVAS_H - SPACING_BOTTOM
+    zone_center_y = (zone_top + zone_bottom) // 2 - mini_total_h // 2
+
     if v_align == "top":
         by = EDGE_MARGIN
     elif v_align == "bottom":
         by = max(EDGE_MARGIN, CANVAS_H - mini_total_h - EDGE_MARGIN)
     else:
-        by = max(0, (CANVAS_H - mini_total_h) // 2)
+        by = max(EDGE_MARGIN, zone_center_y)
 
     return bx, by
 
