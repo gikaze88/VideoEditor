@@ -20,11 +20,16 @@ from ._ffmpeg import check_ffmpeg, get_duration, slug_from_title
 
 OUT_W, OUT_H = 1920, 1080
 
-# Positions par défaut en % (identiques aux scripts originaux)
-LEFT_X_PCT  = 2.6
-LEFT_Y_PCT  = 4.6
-RIGHT_X_PCT = 62.4
-RIGHT_Y_PCT = 60.4
+# Positions par défaut en % du canvas
+# Speaker gauche : ancré coin haut-gauche → grandit vers la droite et le bas
+LEFT_X_PCT    = 2.6
+LEFT_Y_PCT    = 4.6
+# Speaker droit  : ancré par son coin bas-droit → grandit vers la gauche et le haut
+# Les valeurs correspondent au coin bas-droit du bloc à la taille par défaut (35%).
+# Formule : rx = int(OUT_W * RIGHT_X_END_PCT/100) - w
+#            ry = int(OUT_H * RIGHT_Y_END_PCT/100) - h
+RIGHT_X_END_PCT = 97.4   # bord droit fixé à ~97 % du canvas (1870 px)
+RIGHT_Y_END_PCT = 95.4   # bord bas  fixé à ~95 % du canvas (1030 px)
 
 
 def run(job_id: str, params: dict, output_dir: Path, log_path: Path) -> str:
@@ -41,10 +46,11 @@ def run(job_id: str, params: dict, output_dir: Path, log_path: Path) -> str:
 
     w  = int(OUT_W * size_pct / 100)
     h  = int(OUT_H * size_pct / 100)
-    lx = int(OUT_W * LEFT_X_PCT  / 100)
-    ly = int(OUT_H * LEFT_Y_PCT  / 100)
-    rx = int(OUT_W * RIGHT_X_PCT / 100)
-    ry = int(OUT_H * RIGHT_Y_PCT / 100)
+    lx = int(OUT_W * LEFT_X_PCT    / 100)
+    ly = int(OUT_H * LEFT_Y_PCT    / 100)
+    # Droit : bord bas-droit fixe → le bloc grandit vers la gauche et le haut
+    rx = max(0, int(OUT_W * RIGHT_X_END_PCT / 100) - w)
+    ry = max(0, int(OUT_H * RIGHT_Y_END_PCT / 100) - h)
 
     title = params.get("title")
     base = slug_from_title(title) if title else f"composite_double_{job_id}"
