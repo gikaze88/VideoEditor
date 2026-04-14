@@ -13,7 +13,7 @@ Correction décalage audio/vidéo :
 import subprocess
 import os
 from pathlib import Path
-from ._ffmpeg import check_ffmpeg, run_ffmpeg
+from ._ffmpeg import check_ffmpeg, run_ffmpeg, slug_from_title
 
 CANVAS_W    = 1080
 CANVAS_H    = 1920
@@ -104,7 +104,9 @@ def run(job_id: str, params: dict, output_dir: Path, log_path: Path) -> Path:
         "Boucle background échouée",
     )
 
-    output_file = output_dir / f"portrait_{job_id}.mp4"
+    title = params.get("title")
+    base = slug_from_title(title) if title else f"portrait_{job_id}"
+    output_file = output_dir / f"{base}.mp4"
 
     # 3. Assemblage
     if audio_only or not _is_video(content):

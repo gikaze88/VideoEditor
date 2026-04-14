@@ -6,7 +6,7 @@ GPU (h264_nvenc) avec fallback CPU automatique.
 import subprocess
 import json
 from pathlib import Path
-from ._ffmpeg import check_ffmpeg, run_ffmpeg
+from ._ffmpeg import check_ffmpeg, run_ffmpeg, slug_from_title
 
 
 def _get_dimensions(video_path: str) -> tuple[int, int]:
@@ -46,7 +46,9 @@ def run(job_id: str, params: dict, output_dir: Path, log_path: Path) -> Path:
         raise ValueError(f"Valeurs de crop invalides : résultat {out_w}×{out_h}")
 
     crop_filter = f"crop={out_w}:{out_h}:{left}:{top}"
-    output_file = output_dir / f"crop_{job_id}.mp4"
+    title = params.get("title")
+    base = slug_from_title(title) if title else f"crop_{job_id}"
+    output_file = output_dir / f"{base}.mp4"
 
     with open(log_path, "a", encoding="utf-8") as log:
         log.write(f"[crop] Source : {video_path} ({src_w}×{src_h})\n")

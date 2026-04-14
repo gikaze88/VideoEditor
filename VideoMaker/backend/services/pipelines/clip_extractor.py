@@ -3,7 +3,7 @@ Pipeline: extract
 Extrait un segment de vidéo par plage de temps (stream copy, sans ré-encodage).
 """
 from pathlib import Path
-from ._ffmpeg import check_ffmpeg
+from ._ffmpeg import check_ffmpeg, slug_from_title
 
 
 def _parse_time(time_str: str) -> int:
@@ -26,7 +26,9 @@ def run(job_id: str, params: dict, output_dir: Path, log_path: Path) -> Path:
     if duration <= 0:
         raise ValueError(f"end_time doit être après start_time")
 
-    output_file = output_dir / f"extract_{job_id}.mp4"
+    title = params.get("title")
+    base = slug_from_title(title) if title else f"extract_{job_id}"
+    output_file = output_dir / f"{base}.mp4"
 
     with open(log_path, "a") as log:
         log.write(f"[extract] {params['start_time']} → {params['end_time']} ({duration}s)\n")

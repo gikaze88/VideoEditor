@@ -5,7 +5,7 @@ Concatène plusieurs vidéos (stream copy).
 import os
 import tempfile
 from pathlib import Path
-from ._ffmpeg import check_ffmpeg
+from ._ffmpeg import check_ffmpeg, slug_from_title
 
 
 def run(job_id: str, params: dict, output_dir: Path, log_path: Path) -> Path:
@@ -16,7 +16,9 @@ def run(job_id: str, params: dict, output_dir: Path, log_path: Path) -> Path:
     if not video_paths:
         raise ValueError("Aucun fichier vidéo fourni")
 
-    output_file = output_dir / f"merge_{job_id}.mp4"
+    title = params.get("title")
+    base = slug_from_title(title) if title else f"merge_{job_id}"
+    output_file = output_dir / f"{base}.mp4"
 
     with open(log_path, "a") as log:
         log.write(f"[merge] {len(video_paths)} fichier(s)\n")

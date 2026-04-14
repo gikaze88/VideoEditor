@@ -15,7 +15,7 @@ Correction décalage audio/vidéo :
 import os
 import subprocess
 from pathlib import Path
-from ._ffmpeg import check_ffmpeg, run_ffmpeg
+from ._ffmpeg import check_ffmpeg, run_ffmpeg, slug_from_title
 
 CANVAS_W = 1080
 CANVAS_H = 1920
@@ -111,8 +111,10 @@ def run(job_id: str, params: dict, output_dir: Path, log_path: Path) -> Path:
         )
 
     # Assemblage final
-    wf       = _wave_filter(style, CANVAS_W, WAVE_H, color)
-    output_file = output_dir / f"wave_{style}_{job_id}.mp4"
+    wf = _wave_filter(style, CANVAS_W, WAVE_H, color)
+    title = params.get("title")
+    base = slug_from_title(title) if title else f"wave_{style}_{job_id}"
+    output_file = output_dir / f"{base}.mp4"
 
     # Construction du filter_complex et des inputs.
     # L'audio est pris directement depuis input_path (video ou audio) sans re-encodage.

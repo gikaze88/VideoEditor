@@ -16,7 +16,7 @@ params :
     fps                   : int   — fps de sortie (défaut 30)
 """
 from pathlib import Path
-from ._ffmpeg import check_ffmpeg, get_duration
+from ._ffmpeg import check_ffmpeg, get_duration, slug_from_title
 
 OUT_W, OUT_H = 1920, 1080
 
@@ -46,7 +46,9 @@ def run(job_id: str, params: dict, output_dir: Path, log_path: Path) -> str:
     rx = int(OUT_W * RIGHT_X_PCT / 100)
     ry = int(OUT_H * RIGHT_Y_PCT / 100)
 
-    output = output_dir / "composite_double.mp4"
+    title = params.get("title")
+    base = slug_from_title(title) if title else f"composite_double_{job_id}"
+    output = output_dir / f"{base}.mp4"
 
     # Gauche : joue puis se fige pendant right_dur
     # Droite  : figée pendant left_dur puis joue

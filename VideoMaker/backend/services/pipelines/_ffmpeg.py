@@ -13,8 +13,26 @@ Pourquoi :
   bloque car FFmpeg écrit avec \\r (carriage return) pas \\n
 """
 import json
+import re
 import subprocess
+import unicodedata
 from pathlib import Path
+
+
+def slug_from_title(title: str) -> str:
+    """Convertit un titre humain en nom de fichier sûr.
+
+    Exemples :
+        "Mon Meilleur Titre" → "mon_meilleur_titre"
+        "Débat : L'avenir ?"  → "debat_l_avenir"
+    """
+    s = unicodedata.normalize("NFKD", title)
+    s = s.encode("ascii", "ignore").decode("ascii")
+    s = s.lower()
+    s = re.sub(r"[^\w\s-]", "", s)
+    s = re.sub(r"[\s\-]+", "_", s)
+    s = s.strip("_")
+    return s or "output"
 
 
 def run_ffmpeg(cmd: list, log_path: Path) -> int:

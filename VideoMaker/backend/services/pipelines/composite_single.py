@@ -11,7 +11,7 @@ params :
     fps                   : int   — fps de sortie (défaut 30)
 """
 from pathlib import Path
-from ._ffmpeg import check_ffmpeg, get_duration
+from ._ffmpeg import check_ffmpeg, get_duration, slug_from_title
 
 OUT_W, OUT_H = 1920, 1080
 
@@ -31,7 +31,9 @@ def run(job_id: str, params: dict, output_dir: Path, log_path: Path) -> str:
     cx = int(OUT_W * (100 - size_pct) / 200)
     cy = int(OUT_H * (100 - size_pct) / 200)
 
-    output = output_dir / "composite_single.mp4"
+    title = params.get("title")
+    base = slug_from_title(title) if title else f"composite_single_{job_id}"
+    output = output_dir / f"{base}.mp4"
 
     filter_complex = (
         f"[0:v]loop=loop=-1:size=32767:start=0,"

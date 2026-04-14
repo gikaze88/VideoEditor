@@ -17,7 +17,7 @@ params :
     fps                   : int   — fps de sortie (défaut 30)
 """
 from pathlib import Path
-from ._ffmpeg import check_ffmpeg, get_duration
+from ._ffmpeg import check_ffmpeg, get_duration, slug_from_title
 
 OUT_W, OUT_H = 1920, 1080
 
@@ -53,7 +53,9 @@ def run(job_id: str, params: dict, output_dir: Path, log_path: Path) -> str:
     rx = int(OUT_W * RIGHT_X_PCT  / 100)
     ry = int(OUT_H * RIGHT_Y_PCT  / 100)
 
-    output = output_dir / "composite_diagonal.mp4"
+    title = params.get("title")
+    base = slug_from_title(title) if title else f"composite_diagonal_{job_id}"
+    output = output_dir / f"{base}.mp4"
 
     # Chaque vidéo étendue pour couvrir la durée totale :
     # - gauche  : joue left_dur, figée pour (center+right)_dur

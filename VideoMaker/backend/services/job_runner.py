@@ -56,11 +56,15 @@ def _run_job(job_id: str, style: str, params: dict):
     # Récupérer les chemins
     with get_connection() as conn:
         row = conn.execute(
-            "SELECT output_dir, log_file FROM jobs WHERE id=?", (job_id,)
+            "SELECT output_dir, log_file, title FROM jobs WHERE id=?", (job_id,)
         ).fetchone()
 
     output_dir = Path(row["output_dir"])
     log_path = Path(row["log_file"])
+
+    # Injecter le titre dans params pour que les pipelines puissent nommer leur sortie
+    if row["title"] and "title" not in params:
+        params = {**params, "title": row["title"]}
 
     try:
         # Ouvrir le log

@@ -11,7 +11,7 @@ Correction décalage audio/vidéo :
 import os
 import subprocess
 from pathlib import Path
-from ._ffmpeg import check_ffmpeg, run_ffmpeg
+from ._ffmpeg import check_ffmpeg, run_ffmpeg, slug_from_title
 
 
 def _get_duration(path: str) -> float:
@@ -61,8 +61,14 @@ def run(job_id: str, params: dict, output_dir: Path, log_path: Path) -> Path:
         log_path, "Boucle background échouée"
     )
 
-    suffix      = f"_x{speed}" if speed != 1.0 else ""
-    output_file = output_dir / f"podcast{suffix}_{job_id}.mp4"
+    title = params.get("title")
+    if title:
+        base = slug_from_title(title)
+        speed_suffix = f"_x{speed}" if speed != 1.0 else ""
+        output_file = output_dir / f"{base}{speed_suffix}.mp4"
+    else:
+        suffix = f"_x{speed}" if speed != 1.0 else ""
+        output_file = output_dir / f"podcast{suffix}_{job_id}.mp4"
 
     # Assemblage : audio pris directement depuis input_path sans re-encodage
     # Si speed != 1.0, atempo est appliqué dans le filter_complex
