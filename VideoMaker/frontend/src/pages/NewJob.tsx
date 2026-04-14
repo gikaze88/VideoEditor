@@ -676,7 +676,7 @@ function PortraitForm({ onReady, preselectedJobId }: {
               <button
                 type="button"
                 onClick={() => { setPosX('50'); setPosY('75') }}
-                className="text-[11px] text-gray-500 hover:text-violet-400 underline transition-colors"
+                className="inline-flex items-center gap-2 bg-violet-700 hover:bg-violet-600 text-white text-xs font-medium px-4 py-2 rounded-xl transition-colors"
               >
                 Réinitialiser la position
               </button>
