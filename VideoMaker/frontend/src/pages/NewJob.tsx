@@ -650,29 +650,32 @@ function PortraitForm({ onReady, preselectedJobId }: {
               <div>
                 <Label>Taille ({size}%)</Label>
                 <input
-                  type="range" min="20" max="100" value={size}
+                  type="range" min="20" max="100"
+                  name="portrait_size_percent"
+                  value={size}
                   onChange={e => setSize(e.target.value)}
                   className="w-full accent-violet-500"
                 />
-                <input type="hidden" name="portrait_size_percent" value={size} />
               </div>
               <div>
                 <Label>Position horizontale ({posX}%)</Label>
                 <input
-                  type="range" min="0" max="100" value={posX}
+                  type="range" min="0" max="100"
+                  name="portrait_position_x"
+                  value={posX}
                   onChange={e => setPosX(e.target.value)}
                   className="w-full accent-violet-500"
                 />
-                <input type="hidden" name="portrait_position_x" value={posX} />
               </div>
               <div>
                 <Label>Position verticale ({posY}%)</Label>
                 <input
-                  type="range" min="0" max="100" value={posY}
+                  type="range" min="0" max="100"
+                  name="portrait_position_y"
+                  value={posY}
                   onChange={e => setPosY(e.target.value)}
                   className="w-full accent-violet-500"
                 />
-                <input type="hidden" name="portrait_position_y" value={posY} />
               </div>
               <button
                 type="button"
@@ -740,26 +743,31 @@ function DebateSizePreview({ type, size }: { type: 'single' | 'double' | 'diagon
   const sizePct = parseInt(size) / 100
   const w = OUT_W * sizePct * scale
   const h = OUT_H * sizePct * scale
-  // Coordonnée depuis un % backend → pixels preview (sans clamping, comme FFmpeg)
-  const px = (pctX: number, pctY: number) => ({
+  // Coordonnée depuis un % backend → pixels preview
+  const pxPos = (pctX: number, pctY: number) => ({
     x: OUT_W * pctX / 100 * scale,
     y: OUT_H * pctY / 100 * scale,
   })
 
   // ── Single ── centré (identique à composite_single.py)
-  const single = px((100 - sizePct * 100) / 2, (100 - sizePct * 100) / 2)
+  const single = pxPos((100 - sizePct * 100) / 2, (100 - sizePct * 100) / 2)
 
-  // ── Double ── positions fixes exactes du backend (composite_double.py)
-  // Le speaker droit peut dépasser le canvas à taille élevée → overflow:hidden le clip,
-  // comme le ferait FFmpeg dans la vidéo réelle.
-  const dL = px(2.6,  4.6 )
-  const dR = px(62.4, 60.4)
+  // ── Double ──
+  // Gauche : ancré coin haut-gauche → grandit droite/bas
+  const dL = pxPos(2.6, 4.6)
+  // Droit  : ancré coin bas-droit → grandit gauche/haut (miroir exact du backend)
+  const RIGHT_X_END_PCT = 97.4
+  const RIGHT_Y_END_PCT = 95.4
+  const dR = {
+    x: Math.max(0, OUT_W * RIGHT_X_END_PCT / 100 * scale - w),
+    y: Math.max(0, OUT_H * RIGHT_Y_END_PCT / 100 * scale - h),
+  }
 
   // ── Diagonal ── positions fixes exactes du backend (composite_diagonal.py)
   // Les blocs peuvent se chevaucher à taille élevée, comme dans la vidéo réelle.
-  const diagG = px(5,  8 )
-  const diagC = px(36, 36)
-  const diagD = px(67, 64)
+  const diagG = pxPos(5,  8 )
+  const diagC = pxPos(36, 36)
+  const diagD = pxPos(67, 64)
 
   const transition = 'left 0.12s ease, top 0.12s ease, width 0.12s ease, height 0.12s ease'
 
