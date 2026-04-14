@@ -745,7 +745,7 @@ function LandscapePreview({ size, posX, posY }: { size: string; posX: string; po
   const CANVAS_W    = 1920
   const CANVAS_H    = 1080
   const MAX_MINI_W  = 760
-  const MAX_MINI_H  = 680
+  const MAX_MINI_H  = 427   // 16:9 — clairement paysage
   const BORDER_W    = 3
   const EDGE_MARGIN = 20
 

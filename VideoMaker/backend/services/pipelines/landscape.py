@@ -24,9 +24,9 @@ from ._ffmpeg import check_ffmpeg, run_ffmpeg, slug_from_title
 
 CANVAS_W    = 1920
 CANVAS_H    = 1080
-MAX_MINI_W  = 760   # largeur max mini-vidéo (portrait : MAX_VIDEO_W=680 → ici inversé)
-MAX_MINI_H  = 680   # hauteur max mini-vidéo (portrait : MAX_MINI_H=760 → ici inversé)
-MIN_VIDEO_H = 400   # hauteur minimale avant recadrage
+MAX_MINI_W  = 760   # largeur max mini-vidéo
+MAX_MINI_H  = 427   # hauteur max (ratio 16:9 — clairement paysage)
+MIN_VIDEO_H = 240   # hauteur minimale avant recadrage
 BORDER_W    = 3
 EDGE_MARGIN = 20    # marge minimale en pixels par rapport aux bords
 
