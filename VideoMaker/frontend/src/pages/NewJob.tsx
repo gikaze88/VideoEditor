@@ -765,9 +765,9 @@ function DebateSizePreview({ type, size }: { type: 'single' | 'double' | 'diagon
 
   // ── Diagonal ── positions fixes exactes du backend (composite_diagonal.py)
   // Les blocs peuvent se chevaucher à taille élevée, comme dans la vidéo réelle.
-  const diagG = px(5,  8 )
-  const diagC = px(36, 36)
-  const diagD = px(67, 64)
+  const diagG = pxPos(5,  8 )
+  const diagC = pxPos(36, 36)
+  const diagD = pxPos(67, 64)
 
   const transition = 'left 0.12s ease, top 0.12s ease, width 0.12s ease, height 0.12s ease'
 
