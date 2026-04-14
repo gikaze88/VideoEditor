@@ -17,13 +17,26 @@ import subprocess
 from pathlib import Path
 from ._ffmpeg import check_ffmpeg, run_ffmpeg, slug_from_title
 
-CANVAS_W = 1080
-CANVAS_H = 1920
-WAVE_H   = 300
-WAVE_Y   = CANVAS_H - WAVE_H - 80
-MINI_W   = 800
-MINI_H   = 450
-MINI_Y   = WAVE_Y - MINI_H - 40
+CANVAS_W    = 1080
+CANVAS_H    = 1920
+WAVE_H      = 300
+WAVE_Y      = CANVAS_H - WAVE_H - 80
+MINI_W      = 680   # identique à MAX_VIDEO_W du pipeline portrait
+MINI_H      = 760   # identique à MAX_MINI_H du pipeline portrait
+EDGE_MARGIN = 20
+
+
+def _compute_mini_position(mini_w: int, mini_h: int, x_pct: float, y_pct: float) -> tuple[int, int]:
+    """Position de la mini-vidéo par son centre (% du canvas 1080×1920), clampée aux bords."""
+    cx = int(CANVAS_W * x_pct / 100)
+    cy = int(CANVAS_H * y_pct / 100)
+    bx = cx - mini_w // 2
+    by = cy - mini_h // 2
+    max_x = CANVAS_W - mini_w - EDGE_MARGIN
+    max_y = CANVAS_H - mini_h - EDGE_MARGIN
+    bx = max(EDGE_MARGIN, min(bx, max_x))
+    by = max(EDGE_MARGIN, min(by, max_y))
+    return bx, by
 
 WAVE_STYLE_CFG = {
     "sine":          {"uses_showwaves": True,  "mode": "line",  "rainbow": False},
@@ -69,12 +82,13 @@ def run(job_id: str, params: dict, output_dir: Path, log_path: Path) -> Path:
     speed           = float(params.get("speed_factor", 1.0))
     color           = params.get("wave_color", "white")
     use_gpu         = bool(params.get("use_gpu", True))
-    mini_size_pct   = max(10, min(100, int(params.get("mini_size_percent", 100))))
-    mini_position   = params.get("mini_position", "center").lower()
+    mini_size_pct   = max(10, min(100, int(params.get("mini_size_percent", 80))))
+    mini_pos_x      = float(params.get("mini_position_x_pct", 50))
+    mini_pos_y      = float(params.get("mini_position_y_pct", 40))
 
     with open(log_path, "a", encoding="utf-8", errors="replace") as log:
         log.write(f"[wave] style={style} mode={mode} speed={speed} color={color} gpu={use_gpu}\n")
-        log.write(f"[wave] mini_size={mini_size_pct}% mini_pos={mini_position}\n")
+        log.write(f"[wave] mini_size={mini_size_pct}% pos_x={mini_pos_x:.1f}% pos_y={mini_pos_y:.1f}%\n")
         log.flush()
 
     # Durée prise directement depuis le fichier source (pas de MP3 intermédiaire)
@@ -123,13 +137,8 @@ def run(job_id: str, params: dict, output_dir: Path, log_path: Path) -> Path:
     scaled_mini_w = max(10, int(MINI_W * mini_size_pct / 100))
     scaled_mini_h = max(10, int(MINI_H * mini_size_pct / 100))
 
-    # Position horizontale de la mini-vidéo
-    if mini_position == "left":
-        mini_x = 20
-    elif mini_position == "right":
-        mini_x = CANVAS_W - scaled_mini_w - 20
-    else:
-        mini_x = (CANVAS_W - scaled_mini_w) // 2
+    # Position X/Y libre par le centre (% du canvas)
+    mini_x, mini_y = _compute_mini_position(scaled_mini_w, scaled_mini_h, mini_pos_x, mini_pos_y)
 
     # Construction du filter_complex et des inputs.
     # L'audio est pris directement depuis input_path (video ou audio) sans re-encodage.
@@ -148,7 +157,6 @@ def run(job_id: str, params: dict, output_dir: Path, log_path: Path) -> Path:
             wave_audio   = audio_label
             out_audio    = audio_label
 
-        mini_y = WAVE_Y - scaled_mini_h - 40
         vf = (
             f"{speed_prefix}"
             f"[1:v]scale={scaled_mini_w}:{scaled_mini_h}[mini];"
