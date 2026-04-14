@@ -84,7 +84,7 @@ export default function History() {
       ) : (
         <div className="space-y-3">
           {jobs.map(job => (
-            <div key={job.id} className="bg-gray-900 rounded-2xl p-4 flex items-center gap-4">
+            <div key={job.id} className="bg-gray-900 rounded-2xl p-3 sm:p-4 flex items-center gap-3 sm:gap-4">
               {/* Icône style */}
               <div className="text-2xl shrink-0">{STYLE_ICONS[job.style] ?? '🎬'}</div>
 

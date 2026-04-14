@@ -15,16 +15,16 @@ function Navbar() {
   useEffect(() => { setClipCount(editorClipCount()) }, [location])
 
   return (
-    <nav className="bg-gray-900 border-b border-gray-800 px-6 py-3 flex items-center gap-8">
-      <div className="flex items-center gap-2 text-violet-400 font-bold text-lg">
-        <Film size={22} />
-        VideoMaker
+    <nav className="bg-gray-900 border-b border-gray-800 px-4 sm:px-6 py-3 flex items-center gap-2 sm:gap-6 overflow-x-auto">
+      <div className="flex items-center gap-2 text-violet-400 font-bold text-base sm:text-lg shrink-0 mr-2 sm:mr-0">
+        <Film size={20} />
+        <span className="hidden xs:inline sm:inline">VideoMaker</span>
       </div>
       <NavLink
         to="/"
         end
         className={({ isActive }) =>
-          `flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md transition-colors ${
+          `flex items-center gap-1.5 text-sm px-3 py-2 rounded-md transition-colors shrink-0 ${
             isActive
               ? 'bg-violet-600 text-white'
               : 'text-gray-400 hover:text-white hover:bg-gray-800'
@@ -32,12 +32,13 @@ function Navbar() {
         }
       >
         <PlusCircle size={15} />
-        Nouveau job
+        <span className="hidden sm:inline">Nouveau job</span>
+        <span className="sm:hidden">Nouveau</span>
       </NavLink>
       <NavLink
         to="/editor"
         className={({ isActive }) =>
-          `flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md transition-colors ${
+          `flex items-center gap-1.5 text-sm px-3 py-2 rounded-md transition-colors shrink-0 ${
             isActive
               ? 'bg-violet-600 text-white'
               : 'text-gray-400 hover:text-white hover:bg-gray-800'
@@ -55,7 +56,7 @@ function Navbar() {
       <NavLink
         to="/history"
         className={({ isActive }) =>
-          `flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md transition-colors ${
+          `flex items-center gap-1.5 text-sm px-3 py-2 rounded-md transition-colors shrink-0 ${
             isActive
               ? 'bg-violet-600 text-white'
               : 'text-gray-400 hover:text-white hover:bg-gray-800'
@@ -76,7 +77,7 @@ export default function App() {
         <Navbar />
 
         {/* Contenu */}
-        <main className="flex-1 p-6 max-w-7xl mx-auto w-full">
+        <main className="flex-1 px-4 py-4 sm:px-6 sm:py-6 max-w-7xl mx-auto w-full">
           <Routes>
             <Route path="/"        element={<NewJob />} />
             <Route path="/editor"  element={<Editor />} />
