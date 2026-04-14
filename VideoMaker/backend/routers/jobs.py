@@ -92,6 +92,12 @@ async def create_job(
     wave_color: Optional[str] = Form("white"),
     audio_only: Optional[str] = Form("false"),
     border_color: Optional[str] = Form("white"),
+    # portrait : taille + position mini-vidéo
+    portrait_size_percent: Optional[str] = Form("90"),
+    portrait_position: Optional[str] = Form("center"),
+    # wave : taille + position mini-vidéo (modes mini/hybrid)
+    mini_size_percent: Optional[str] = Form("100"),
+    mini_position: Optional[str] = Form("center"),
     # fichiers uploadés
     video_file: Optional[UploadFile] = File(None),
     video_files: Optional[list[UploadFile]] = File(None),
@@ -208,6 +214,8 @@ async def create_job(
             "content_video_path": saved.get("content_video_path"),
             "speed_factor": float(speed_factor),
             "wave_color": wave_color,
+            "mini_size_percent": int(mini_size_percent or 100),
+            "mini_position": mini_position or "center",
         }
     elif style == "portrait":
         params = {
@@ -216,6 +224,8 @@ async def create_job(
             "audio_only": audio_only.lower() == "true",
             "border_color": border_color,
             "use_gpu": use_gpu.lower() == "true",
+            "size_percent": int(portrait_size_percent or 90),
+            "position": portrait_position or "center",
         }
     elif style == "debate_single":
         params = {

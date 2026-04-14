@@ -61,17 +61,20 @@ def _wave_filter(style: str, w: int, h: int, color: str) -> str:
 
 
 def run(job_id: str, params: dict, output_dir: Path, log_path: Path) -> Path:
-    input_path = params["audio_path"]
-    bg_path    = params.get("background_video_path")
-    style      = params.get("wave_style", "sine")
-    mode       = params.get("video_mode", "audio")
-    mini_path  = params.get("content_video_path")
-    speed      = float(params.get("speed_factor", 1.0))
-    color      = params.get("wave_color", "white")
-    use_gpu    = bool(params.get("use_gpu", True))
+    input_path      = params["audio_path"]
+    bg_path         = params.get("background_video_path")
+    style           = params.get("wave_style", "sine")
+    mode            = params.get("video_mode", "audio")
+    mini_path       = params.get("content_video_path")
+    speed           = float(params.get("speed_factor", 1.0))
+    color           = params.get("wave_color", "white")
+    use_gpu         = bool(params.get("use_gpu", True))
+    mini_size_pct   = max(10, min(100, int(params.get("mini_size_percent", 100))))
+    mini_position   = params.get("mini_position", "center").lower()
 
     with open(log_path, "a", encoding="utf-8", errors="replace") as log:
         log.write(f"[wave] style={style} mode={mode} speed={speed} color={color} gpu={use_gpu}\n")
+        log.write(f"[wave] mini_size={mini_size_pct}% mini_pos={mini_position}\n")
         log.flush()
 
     # Durée prise directement depuis le fichier source (pas de MP3 intermédiaire)
@@ -116,12 +119,23 @@ def run(job_id: str, params: dict, output_dir: Path, log_path: Path) -> Path:
     base = slug_from_title(title) if title else f"wave_{style}_{job_id}"
     output_file = output_dir / f"{base}.mp4"
 
+    # Dimensions mini-vidéo avec size_percent appliqué
+    scaled_mini_w = max(10, int(MINI_W * mini_size_pct / 100))
+    scaled_mini_h = max(10, int(MINI_H * mini_size_pct / 100))
+
+    # Position horizontale de la mini-vidéo
+    if mini_position == "left":
+        mini_x = 20
+    elif mini_position == "right":
+        mini_x = CANVAS_W - scaled_mini_w - 20
+    else:
+        mini_x = (CANVAS_W - scaled_mini_w) // 2
+
     # Construction du filter_complex et des inputs.
     # L'audio est pris directement depuis input_path (video ou audio) sans re-encodage.
     # L'atempo est appliqué dans le filter_complex si speed != 1.0,
     # avec asplit pour alimenter à la fois la waveform et la sortie audio.
     if mode in ("mini", "hybrid") and mini_path:
-        mini_x = (CANVAS_W - MINI_W) // 2
         # inputs: [0]=looped_bg, [1]=mini_path(video), [2]=input_path(audio/video)
         audio_label = "[2:a]"
         if speed != 1.0:
@@ -134,10 +148,11 @@ def run(job_id: str, params: dict, output_dir: Path, log_path: Path) -> Path:
             wave_audio   = audio_label
             out_audio    = audio_label
 
+        mini_y = WAVE_Y - scaled_mini_h - 40
         vf = (
             f"{speed_prefix}"
-            f"[1:v]scale={MINI_W}:{MINI_H}[mini];"
-            f"[0:v][mini]overlay={mini_x}:{MINI_Y}[bg_mini];"
+            f"[1:v]scale={scaled_mini_w}:{scaled_mini_h}[mini];"
+            f"[0:v][mini]overlay={mini_x}:{mini_y}[bg_mini];"
             f"[bg_mini]{wave_audio}{wf}[wave];"
             f"[bg_mini][wave]overlay=0:{WAVE_Y}[outv]"
         )

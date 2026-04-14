@@ -99,6 +99,78 @@ function Checkbox({
   )
 }
 
+/** Grille 3×3 de sélection de position (pour portrait) */
+const POSITION_GRID = [
+  ['top-left',    'top',    'top-right'],
+  ['left',        'center', 'right'],
+  ['bottom-left', 'bottom', 'bottom-right'],
+] as const
+
+const POSITION_ARROWS: Record<string, string> = {
+  'top-left': '↖', 'top': '↑', 'top-right': '↗',
+  'left': '←',     'center': '◉', 'right': '→',
+  'bottom-left': '↙', 'bottom': '↓', 'bottom-right': '↘',
+}
+
+function PositionPicker9({
+  name, value, onChange,
+}: { name: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <div>
+      <div className="grid grid-cols-3 gap-1" style={{ width: 96 }}>
+        {POSITION_GRID.map(row =>
+          row.map(pos => (
+            <button
+              key={pos}
+              type="button"
+              title={pos}
+              onClick={() => onChange(pos)}
+              className={`h-8 rounded text-sm font-mono transition-all ${
+                value === pos
+                  ? 'bg-violet-500 text-white shadow-md'
+                  : 'bg-gray-700 hover:bg-gray-600 text-gray-400'
+              }`}
+            >
+              {POSITION_ARROWS[pos]}
+            </button>
+          ))
+        )}
+      </div>
+      <input type="hidden" name={name} value={value} />
+    </div>
+  )
+}
+
+/** Sélecteur de position horizontal (gauche / centre / droite) */
+function PositionPickerH({
+  name, value, onChange,
+}: { name: string; value: string; onChange: (v: string) => void }) {
+  const opts = [
+    { v: 'left',   label: '← Gauche' },
+    { v: 'center', label: '◉ Centre' },
+    { v: 'right',  label: 'Droite →' },
+  ]
+  return (
+    <div className="flex gap-1">
+      {opts.map(o => (
+        <button
+          key={o.v}
+          type="button"
+          onClick={() => onChange(o.v)}
+          className={`flex-1 py-1.5 text-xs rounded transition-all ${
+            value === o.v
+              ? 'bg-violet-500 text-white'
+              : 'bg-gray-700 hover:bg-gray-600 text-gray-400'
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+      <input type="hidden" name={name} value={value} />
+    </div>
+  )
+}
+
 // ─── Formulaires par style ────────────────────────────────────────────────────
 
 function ExtractForm({ onReady }: { onReady: (ok: boolean) => void }) {
@@ -274,6 +346,8 @@ function WaveForm({ config, onReady, preselectedJobId }: {
   const [videoMode,  setVideoMode]  = useState('audio')
   const [speed,      setSpeed]      = useState('1.0')
   const [color,      setColor]      = useState('white')
+  const [miniSize,   setMiniSize]   = useState('100')
+  const [miniPos,    setMiniPos]    = useState('center')
 
   const needsMini = videoMode === 'mini' || videoMode === 'hybrid'
 
@@ -332,11 +406,32 @@ function WaveForm({ config, onReady, preselectedJobId }: {
           </Select>
         </div>
       </div>
+
       {needsMini && (
-        <div>
-          <Label>Vidéo du mini-overlay <Required /> <span className="text-gray-500 font-normal">(requise pour mode mini/hybrid)</span></Label>
-          <FileInput name="content_video" label="Choisir la vidéo à afficher" accept="video/*" onPicked={setMini} />
-        </div>
+        <>
+          <div>
+            <Label>Vidéo du mini-overlay <Required /> <span className="text-gray-500 font-normal">(requise pour mode mini/hybrid)</span></Label>
+            <FileInput name="content_video" label="Choisir la vidéo à afficher" accept="video/*" onPicked={setMini} />
+          </div>
+
+          {/* Taille + Position mini-vidéo */}
+          <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4 space-y-3">
+            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Mini-vidéo overlay</p>
+            <div>
+              <Label>Taille ({miniSize}%)</Label>
+              <input
+                type="range" min="20" max="100" value={miniSize}
+                onChange={e => setMiniSize(e.target.value)}
+                className="w-full accent-violet-500"
+              />
+              <input type="hidden" name="mini_size_percent" value={miniSize} />
+            </div>
+            <div>
+              <Label>Position horizontale</Label>
+              <PositionPickerH name="mini_position" value={miniPos} onChange={setMiniPos} />
+            </div>
+          </div>
+        </>
       )}
     </div>
   )
@@ -345,11 +440,13 @@ function WaveForm({ config, onReady, preselectedJobId }: {
 function PortraitForm({ onReady, preselectedJobId }: {
   onReady: (ok: boolean) => void; preselectedJobId?: string | null
 }) {
-  const [bg,           setBg]           = useState(false)
-  const [content,      setContent]      = useState(!!preselectedJobId)
-  const [audioOnly,    setAudioOnly]    = useState(false)
-  const [borderColor,  setBorderColor]  = useState('white')
-  const [useGpu,       setUseGpu]       = useState(true)
+  const [bg,          setBg]          = useState(false)
+  const [content,     setContent]     = useState(!!preselectedJobId)
+  const [audioOnly,   setAudioOnly]   = useState(false)
+  const [borderColor, setBorderColor] = useState('white')
+  const [useGpu,      setUseGpu]      = useState(true)
+  const [size,        setSize]        = useState('90')
+  const [position,    setPosition]    = useState('center')
 
   useEffect(() => { onReady(bg && content) }, [bg, content, onReady])
 
@@ -370,6 +467,31 @@ function PortraitForm({ onReady, preselectedJobId }: {
           preselectedJobId={preselectedJobId}
         />
       </div>
+
+      {/* Taille + Position mini-vidéo */}
+      {!audioOnly && (
+        <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4 space-y-3">
+          <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Mini-vidéo</p>
+          <div className="flex items-start gap-6">
+            {/* Taille */}
+            <div className="flex-1">
+              <Label>Taille ({size}%)</Label>
+              <input
+                type="range" min="20" max="100" value={size}
+                onChange={e => setSize(e.target.value)}
+                className="w-full accent-violet-500"
+              />
+              <input type="hidden" name="portrait_size_percent" value={size} />
+            </div>
+            {/* Position */}
+            <div>
+              <Label>Position</Label>
+              <PositionPicker9 name="portrait_position" value={position} onChange={setPosition} />
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-4">
         <div>
           <Label>Couleur de bordure</Label>
@@ -382,7 +504,7 @@ function PortraitForm({ onReady, preselectedJobId }: {
         <div className="pt-6">
           <Checkbox
             name="use_gpu"
-            label="Utiliser le GPU (h264_nvenc) si disponible"
+            label="Utiliser le GPU (h264_nvenc)"
             checked={useGpu}
             onChange={setUseGpu}
           />
