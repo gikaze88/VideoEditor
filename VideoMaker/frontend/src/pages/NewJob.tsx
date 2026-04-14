@@ -737,6 +737,182 @@ function PortraitForm({ onReady, preselectedJobId }: {
   )
 }
 
+/**
+ * Miniature du canvas landscape 1920×1080.
+ * Miroir exact du pipeline landscape.py.
+ */
+function LandscapePreview({ size, posX, posY }: { size: string; posX: string; posY: string }) {
+  const CANVAS_W    = 1920
+  const CANVAS_H    = 1080
+  const MAX_MINI_W  = 760
+  const MAX_MINI_H  = 680
+  const BORDER_W    = 3
+  const EDGE_MARGIN = 20
+
+  const previewW = 280
+  const previewH = Math.round(previewW * CANVAS_H / CANVAS_W)  // ~158px
+  const scale    = previewW / CANVAS_W
+
+  const sizePct = parseInt(size) / 100
+  const xPct    = parseInt(posX) / 100
+  const yPct    = parseInt(posY) / 100
+
+  const miniW  = Math.max(4, Math.round(MAX_MINI_W * sizePct * scale))
+  const miniH  = Math.max(4, Math.round(MAX_MINI_H * sizePct * scale))
+  const bw     = Math.max(1, Math.round(BORDER_W * scale))
+  const totalW = miniW + bw * 2
+  const totalH = miniH + bw * 2
+  const edgeM  = EDGE_MARGIN * scale
+
+  const rawBx = previewW * xPct - totalW / 2
+  const rawBy = previewH * yPct - totalH / 2
+  const bx = Math.max(edgeM, Math.min(previewW - totalW - edgeM, rawBx))
+  const by = Math.max(edgeM, Math.min(previewH - totalH - edgeM, rawBy))
+
+  return (
+    <div
+      className="relative bg-gray-950 rounded-lg overflow-hidden border border-gray-700 flex-shrink-0"
+      style={{ width: previewW, height: previewH }}
+      title="Position exacte · Taille approchée (dépend du ratio de la vidéo source)"
+    >
+      <div className="absolute inset-0" style={{ background: 'rgba(15,15,28,0.98)' }} />
+
+      {/* Mini-vidéo */}
+      <div
+        className="absolute rounded flex items-center justify-center"
+        style={{
+          left: bx,
+          top: by,
+          width: totalW,
+          height: totalH,
+          background: 'rgba(124,58,237,0.82)',
+          border: `${bw}px solid rgba(255,255,255,0.85)`,
+          boxSizing: 'border-box',
+          transition: 'left 0.08s linear, top 0.08s linear, width 0.12s ease, height 0.12s ease',
+          zIndex: 2,
+        }}
+      >
+        <span className="text-[7px] text-white font-bold leading-none">{size}%</span>
+      </div>
+
+      <div className="absolute bottom-1 left-0 right-0 flex justify-center" style={{ zIndex: 3 }}>
+        <span className="text-[7px] text-gray-700 font-mono">aperçu</span>
+      </div>
+    </div>
+  )
+}
+
+function LandscapeForm({ onReady, preselectedJobId }: {
+  onReady: (ok: boolean) => void; preselectedJobId?: string | null
+}) {
+  const [bg,          setBg]          = useState(false)
+  const [content,     setContent]     = useState(!!preselectedJobId)
+  const [audioOnly,   setAudioOnly]   = useState(false)
+  const [borderColor, setBorderColor] = useState('white')
+  const [useGpu,      setUseGpu]      = useState(true)
+  const [size,        setSize]        = useState('90')
+  const [posX,        setPosX]        = useState('75')   // % centre H, défaut bas-droit
+  const [posY,        setPosY]        = useState('75')   // % centre V, défaut bas-droit
+
+  useEffect(() => { onReady(bg && content) }, [bg, content, onReady])
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <Label>Vidéo de fond 1920×1080 <Required /></Label>
+        <FileInput name="background_video" label="Choisir la vidéo de fond" accept="video/*" onPicked={setBg} />
+      </div>
+      <div>
+        <Label>Contenu à intégrer (vidéo ou audio) <Required /></Label>
+        <JobPicker
+          name="content_video"
+          jobRefName="content_job_ref"
+          label="Choisir vidéo ou audio"
+          accept="audio/*,video/*"
+          onReady={setContent}
+          preselectedJobId={preselectedJobId}
+        />
+      </div>
+
+      {/* Taille + Position mini-vidéo */}
+      {!audioOnly && (
+        <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4 space-y-3">
+          <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Mini-vidéo</p>
+          <div className="flex items-start gap-4">
+            {/* Contrôles gauche */}
+            <div className="flex-1 space-y-3">
+              <div>
+                <Label>Taille ({size}%)</Label>
+                <input
+                  type="range" min="20" max="100"
+                  name="landscape_size_percent"
+                  value={size}
+                  onChange={e => setSize(e.target.value)}
+                  className="w-full accent-violet-500"
+                />
+              </div>
+              <div>
+                <Label>Position horizontale ({posX}%)</Label>
+                <input
+                  type="range" min="0" max="100"
+                  name="landscape_position_x"
+                  value={posX}
+                  onChange={e => setPosX(e.target.value)}
+                  className="w-full accent-violet-500"
+                />
+              </div>
+              <div>
+                <Label>Position verticale ({posY}%)</Label>
+                <input
+                  type="range" min="0" max="100"
+                  name="landscape_position_y"
+                  value={posY}
+                  onChange={e => setPosY(e.target.value)}
+                  className="w-full accent-violet-500"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => { setPosX('75'); setPosY('75') }}
+                className="inline-flex items-center gap-2 bg-violet-700 hover:bg-violet-600 text-white text-xs font-medium px-4 py-2 rounded-xl transition-colors"
+              >
+                Réinitialiser la position
+              </button>
+            </div>
+            {/* Preview droite */}
+            <div className="flex flex-col items-center gap-1 pt-1">
+              <span className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">Aperçu</span>
+              <LandscapePreview size={size} posX={posX} posY={posY} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label>Couleur de bordure</Label>
+          <Select name="border_color" value={borderColor} onChange={setBorderColor}>
+            {['white', 'black', 'gold', 'silver', 'red', 'cyan'].map(c => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </Select>
+        </div>
+        <div className="pt-6">
+          <Checkbox
+            name="use_gpu"
+            label="Utiliser le GPU (h264_nvenc)"
+            checked={useGpu}
+            onChange={setUseGpu}
+          />
+        </div>
+      </div>
+      <Checkbox name="audio_only" label="Mode audio pur (pas de mini-vidéo)" checked={audioOnly} onChange={setAudioOnly} />
+      <input type="hidden" name="audio_only" value={audioOnly ? 'true' : 'false'} />
+      <input type="hidden" name="use_gpu" value={useGpu ? 'true' : 'false'} />
+    </div>
+  )
+}
+
 // ─── Page principale ──────────────────────────────────────────────────────────
 
 // ─── Composants débat ─────────────────────────────────────────────────────────
@@ -1033,6 +1209,7 @@ const STYLE_ICONS: Record<string, string> = {
   crop:             '🖼️',
   merge:            '🔗',
   podcast:          '🎙️',
+  landscape:        '🖥️',
   wave:             '🌊',
   portrait:         '📱',
   debate_single:    '🎤',
@@ -1048,7 +1225,7 @@ export default function NewJob() {
   const navState = location.state as { style?: string; jobId?: string } | null
 
   const [config,  setConfig]  = useState<AppConfig | null>(null)
-  const [style,   setStyle]   = useState(navState?.style ?? 'extract')
+  const [style,   setStyle]   = useState(navState?.style ?? 'merge')
   const [title,   setTitle]   = useState('')
   const [loading, setLoading] = useState(false)
   const [error,   setError]   = useState<string | null>(null)
@@ -1110,13 +1287,13 @@ export default function NewJob() {
       {/* Sélection du style — groupé par catégorie */}
       <div className="space-y-3">
         {[
-          { label: 'Préparation', keys: ['extract', 'crop', 'merge'] },
-          { label: 'Génération', keys: ['podcast', 'wave', 'portrait'] },
-          { label: 'Débat / Composite', keys: ['debate_single', 'debate_double', 'debate_diagonal'] },
+          { label: 'Préparation', keys: ['merge'], cols: 1 },
+          { label: 'Génération', keys: ['podcast', 'wave', 'portrait', 'landscape'], cols: 2 },
+          { label: 'Débat / Composite', keys: ['debate_single', 'debate_double', 'debate_diagonal'], cols: 3 },
         ].map(group => (
           <div key={group.label}>
             <p className="text-xs text-gray-600 font-medium uppercase tracking-wider mb-2">{group.label}</p>
-            <div className="grid grid-cols-3 gap-2">
+            <div className={`grid grid-cols-${group.cols} gap-2`}>
               {group.keys.map(key => {
                 const desc = config.job_styles[key] ?? ''
                 return (
@@ -1158,6 +1335,7 @@ export default function NewJob() {
         {style === 'podcast'          && <PodcastForm        config={config} onReady={onReady} preselectedJobId={preselectedJobId} />}
         {style === 'wave'             && <WaveForm           config={config} onReady={onReady} preselectedJobId={preselectedJobId} />}
         {style === 'portrait'         && <PortraitForm       onReady={onReady} preselectedJobId={preselectedJobId} />}
+        {style === 'landscape'        && <LandscapeForm      onReady={onReady} preselectedJobId={preselectedJobId} />}
         {style === 'debate_single'    && <DebateSingleForm   onReady={onReady} />}
         {style === 'debate_double'    && <DebateDoubleForm   onReady={onReady} />}
         {style === 'debate_diagonal'  && <DebateDiagonalForm onReady={onReady} />}

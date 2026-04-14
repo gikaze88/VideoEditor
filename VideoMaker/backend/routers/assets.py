@@ -24,18 +24,17 @@ def get_config():
 @router.get("/prep-jobs")
 def get_prep_jobs():
     """
-    Retourne les jobs de préparation terminés (extract/crop/merge)
-    dont l'output peut être réutilisé comme source dans podcast/wave/portrait.
+    Retourne les jobs terminés dont l'output peut être réutilisé comme source.
     """
     with get_connection() as conn:
         rows = conn.execute(
             """SELECT id, style, title, output_video_path, completed_at
                FROM jobs
                WHERE status = 'completed'
-                 AND style IN ('extract', 'crop', 'merge')
+                 AND style IN ('extract', 'crop', 'merge', 'portrait', 'landscape', 'wave', 'podcast')
                  AND output_video_path IS NOT NULL
                ORDER BY completed_at DESC
-               LIMIT 20"""
+               LIMIT 30"""
         ).fetchall()
     return [row_to_dict(r) for r in rows]
 

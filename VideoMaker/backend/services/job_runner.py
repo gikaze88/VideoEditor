@@ -119,6 +119,7 @@ def _dispatch(style: str, job_id: str, params: dict, output_dir: Path, log_path:
         "podcast":            pipelines.podcast,
         "wave":               pipelines.wave,
         "portrait":           pipelines.portrait,
+        "landscape":          pipelines.landscape,
         "batch_extract":      pipelines.batch_extract,
         "debate_single":      pipelines.composite_single,
         "debate_double":      pipelines.composite_double,

@@ -92,10 +92,13 @@ async def create_job(
     wave_color: Optional[str] = Form("white"),
     audio_only: Optional[str] = Form("false"),
     border_color: Optional[str] = Form("white"),
-    # portrait : taille + position mini-vidéo
+    # portrait + landscape : taille + position mini-vidéo
     portrait_size_percent: Optional[str] = Form("90"),
     portrait_position_x: Optional[str] = Form("50"),
     portrait_position_y: Optional[str] = Form("75"),
+    landscape_size_percent: Optional[str] = Form("90"),
+    landscape_position_x: Optional[str] = Form("75"),
+    landscape_position_y: Optional[str] = Form("75"),
     # wave : taille + position mini-vidéo (modes mini/hybrid)
     mini_size_percent: Optional[str] = Form("80"),
     mini_position_x: Optional[str] = Form("50"),
@@ -230,6 +233,17 @@ async def create_job(
             "size_percent": int(portrait_size_percent or 90),
             "position_x_pct": float(portrait_position_x or 50),
             "position_y_pct": float(portrait_position_y or 75),
+        }
+    elif style == "landscape":
+        params = {
+            "background_video_path": saved.get("background_video_path"),
+            "content_path": saved.get("content_path") or saved.get("audio_path"),
+            "audio_only": audio_only.lower() == "true",
+            "border_color": border_color,
+            "use_gpu": use_gpu.lower() == "true",
+            "size_percent": int(landscape_size_percent or 90),
+            "position_x_pct": float(landscape_position_x or 75),
+            "position_y_pct": float(landscape_position_y or 75),
         }
     elif style == "debate_single":
         params = {
