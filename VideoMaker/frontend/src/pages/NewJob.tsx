@@ -106,23 +106,23 @@ function Checkbox({
  * Montre la zone logo (haut), la zone disponible (bas) et la mini-vidéo
  * à la taille et position calculées.
  */
-function PortraitPreview({ size, position }: { size: string; position: string }) {
+function PortraitPreview({ size, posX, posY }: { size: string; posX: string; posY: string }) {
   // Constantes identiques au backend portrait.py
-  const CANVAS_W      = 1080
-  const CANVAS_H      = 1920
-  const LOGO_H        = 960
-  const SPACING_TOP   = 100
-  const SPACING_BOTTOM = 100
-  const MAX_MINI_H    = 760
-  const MAX_VIDEO_W   = 680
-  const BORDER_W      = 3
-  const EDGE_MARGIN   = 20
+  const CANVAS_W    = 1080
+  const CANVAS_H    = 1920
+  const LOGO_H      = 960
+  const MAX_MINI_H  = 760
+  const MAX_VIDEO_W = 680
+  const BORDER_W    = 3
+  const EDGE_MARGIN = 20
 
   const previewH = 280
   const previewW = Math.round(previewH * CANVAS_W / CANVAS_H)  // ~157px
   const scale    = previewH / CANVAS_H
 
   const sizePct = parseInt(size) / 100
+  const xPct    = parseInt(posX) / 100   // 0–1, centre H
+  const yPct    = parseInt(posY) / 100   // 0–1, centre V
 
   const miniW  = Math.max(4, Math.round(MAX_VIDEO_W * sizePct * scale))
   const miniH  = Math.max(4, Math.round(MAX_MINI_H  * sizePct * scale))
@@ -131,37 +131,23 @@ function PortraitPreview({ size, position }: { size: string; position: string })
   const totalH = miniH + bw * 2
   const edgeM  = EDGE_MARGIN * scale
 
-  const pos    = position.toLowerCase()
-  const hAlign = pos.includes('left') ? 'left' : pos.includes('right') ? 'right' : 'center'
-  const vAlign = pos.includes('top')  ? 'top'  : pos.includes('bottom') ? 'bottom' : 'center'
+  // Miroir exact du backend _compute_position_pct
+  const rawBx = previewW * xPct - totalW / 2
+  const rawBy = previewH * yPct - totalH / 2
+  const bx = Math.max(edgeM, Math.min(previewW - totalW - edgeM, rawBx))
+  const by = Math.max(edgeM, Math.min(previewH - totalH - edgeM, rawBy))
 
-  // Horizontal : 3 zones réparties sur toute la largeur
-  const bx = hAlign === 'left'  ? edgeM
-           : hAlign === 'right' ? Math.max(edgeM, previewW - totalW - edgeM)
-           : Math.max(0, (previewW - totalW) / 2)
-
-  // Vertical : ancré sur la zone mini-vidéo historique (miroir du backend)
-  const zoneTop     = (LOGO_H + SPACING_TOP) * scale
-  const zoneBottom  = (CANVAS_H - SPACING_BOTTOM) * scale
-  const zoneCenterY = Math.max(edgeM, (zoneTop + zoneBottom) / 2 - totalH / 2)
-
-  const by = vAlign === 'top'    ? edgeM
-           : vAlign === 'bottom' ? Math.max(edgeM, previewH - totalH - edgeM)
-           : zoneCenterY
-
-  // Séparateur logo (repère visuel uniquement)
   const logoLinePx = LOGO_H * scale
 
   return (
     <div
       className="relative bg-gray-950 rounded-lg overflow-hidden border border-gray-700 flex-shrink-0"
       style={{ width: previewW, height: previewH }}
-      title="Centre = zone mini-vidéo par défaut · Haut/Bas = extrémités du canvas"
+      title="Aperçu en temps réel — la ligne pointillée indique la zone logo"
     >
-      {/* Canvas */}
       <div className="absolute inset-0" style={{ background: 'rgba(15,15,28,0.98)' }} />
 
-      {/* Zone logo — repère discret, non bloquant */}
+      {/* Zone logo — repère discret */}
       <div
         className="absolute left-0 right-0 flex items-center justify-center"
         style={{ top: 0, height: logoLinePx, background: 'rgba(28,28,48,0.7)' }}
@@ -170,10 +156,10 @@ function PortraitPreview({ size, position }: { size: string; position: string })
       </div>
       <div
         className="absolute left-0 right-0"
-        style={{ top: logoLinePx, height: 1, borderTop: '1px dashed rgba(90,90,130,0.45)' }}
+        style={{ top: logoLinePx, height: 0, borderTop: '1px dashed rgba(90,90,130,0.4)' }}
       />
 
-      {/* Mini-vidéo avec animation fluide */}
+      {/* Mini-vidéo — suit les sliders en temps réel */}
       <div
         className="absolute rounded flex items-center justify-center"
         style={{
@@ -184,7 +170,7 @@ function PortraitPreview({ size, position }: { size: string; position: string })
           background: 'rgba(124,58,237,0.82)',
           border: `${bw}px solid rgba(255,255,255,0.85)`,
           boxSizing: 'border-box',
-          transition: 'left 0.18s ease, top 0.18s ease, width 0.18s ease, height 0.18s ease',
+          transition: 'left 0.08s linear, top 0.08s linear, width 0.12s ease, height 0.12s ease',
           zIndex: 2,
         }}
       >
@@ -630,7 +616,8 @@ function PortraitForm({ onReady, preselectedJobId }: {
   const [borderColor, setBorderColor] = useState('white')
   const [useGpu,      setUseGpu]      = useState(true)
   const [size,        setSize]        = useState('90')
-  const [position,    setPosition]    = useState('center')
+  const [posX,        setPosX]        = useState('50')   // % centre H, défaut centré
+  const [posY,        setPosY]        = useState('75')   // % centre V, défaut zone mini-vidéo
 
   useEffect(() => { onReady(bg && content) }, [bg, content, onReady])
 
@@ -669,14 +656,35 @@ function PortraitForm({ onReady, preselectedJobId }: {
                 <input type="hidden" name="portrait_size_percent" value={size} />
               </div>
               <div>
-                <Label>Position</Label>
-                <PositionPicker9 name="portrait_position" value={position} onChange={setPosition} />
+                <Label>Position horizontale ({posX}%)</Label>
+                <input
+                  type="range" min="0" max="100" value={posX}
+                  onChange={e => setPosX(e.target.value)}
+                  className="w-full accent-violet-500"
+                />
+                <input type="hidden" name="portrait_position_x" value={posX} />
               </div>
+              <div>
+                <Label>Position verticale ({posY}%)</Label>
+                <input
+                  type="range" min="0" max="100" value={posY}
+                  onChange={e => setPosY(e.target.value)}
+                  className="w-full accent-violet-500"
+                />
+                <input type="hidden" name="portrait_position_y" value={posY} />
+              </div>
+              <button
+                type="button"
+                onClick={() => { setPosX('50'); setPosY('75') }}
+                className="text-[11px] text-gray-500 hover:text-violet-400 underline transition-colors"
+              >
+                Réinitialiser la position
+              </button>
             </div>
             {/* Preview droite */}
             <div className="flex flex-col items-center gap-1 pt-1">
               <span className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">Aperçu</span>
-              <PortraitPreview size={size} position={position} />
+              <PortraitPreview size={size} posX={posX} posY={posY} />
             </div>
           </div>
         </div>

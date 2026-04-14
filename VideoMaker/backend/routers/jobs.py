@@ -94,7 +94,8 @@ async def create_job(
     border_color: Optional[str] = Form("white"),
     # portrait : taille + position mini-vidéo
     portrait_size_percent: Optional[str] = Form("90"),
-    portrait_position: Optional[str] = Form("center"),
+    portrait_position_x: Optional[str] = Form("50"),
+    portrait_position_y: Optional[str] = Form("75"),
     # wave : taille + position mini-vidéo (modes mini/hybrid)
     mini_size_percent: Optional[str] = Form("100"),
     mini_position: Optional[str] = Form("center"),
@@ -225,7 +226,8 @@ async def create_job(
             "border_color": border_color,
             "use_gpu": use_gpu.lower() == "true",
             "size_percent": int(portrait_size_percent or 90),
-            "position": portrait_position or "center",
+            "position_x_pct": float(portrait_position_x or 50),
+            "position_y_pct": float(portrait_position_y or 75),
         }
     elif style == "debate_single":
         params = {
