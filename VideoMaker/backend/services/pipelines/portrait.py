@@ -96,28 +96,25 @@ def _compute_position(
     mini_total_w: int, mini_total_h: int,
     h_align: str, v_align: str,
 ) -> tuple[int, int]:
-    """Calcule (border_x, border_y) dans le canvas portrait.
+    """Calcule (border_x, border_y) sur le canvas portrait complet (1080×1920).
 
-    Zone disponible pour la mini-vidéo : de LOGO_H+SPACING_TOP à CANVAS_H-SPACING_BOTTOM.
+    La grille 3×3 adresse l'intégralité du canvas : la mini-vidéo peut être
+    placée n'importe où. La position par défaut ('bottom') la positionne en
+    bas du canvas, ce qui correspond au comportement historique.
     """
-    zone_top = LOGO_H + SPACING_TOP
-    zone_h   = CANVAS_H - SPACING_BOTTOM - zone_top
-    remaining_h = max(0, zone_h - mini_total_h)
-    remaining_w = CANVAS_W - mini_total_w
-
     if h_align == "left":
         bx = EDGE_MARGIN
     elif h_align == "right":
         bx = max(EDGE_MARGIN, CANVAS_W - mini_total_w - EDGE_MARGIN)
     else:
-        bx = max(0, remaining_w // 2)
+        bx = max(0, (CANVAS_W - mini_total_w) // 2)
 
     if v_align == "top":
-        by = zone_top + EDGE_MARGIN
+        by = EDGE_MARGIN
     elif v_align == "bottom":
-        by = zone_top + max(0, remaining_h - EDGE_MARGIN)
+        by = max(EDGE_MARGIN, CANVAS_H - mini_total_h - EDGE_MARGIN)
     else:
-        by = zone_top + remaining_h // 2
+        by = max(0, (CANVAS_H - mini_total_h) // 2)
 
     return bx, by
 

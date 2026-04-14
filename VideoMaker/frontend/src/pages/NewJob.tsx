@@ -108,72 +108,70 @@ function Checkbox({
  */
 function PortraitPreview({ size, position }: { size: string; position: string }) {
   // Constantes identiques au backend portrait.py
-  const CANVAS_W      = 1080
-  const CANVAS_H      = 1920
-  const LOGO_H        = 960
-  const SPACING_TOP   = 100
-  const SPACING_BOTTOM = 100
-  const MAX_MINI_H    = 760
-  const MAX_VIDEO_W   = 680
-  const BORDER_W      = 3
-  const EDGE_MARGIN   = 20
+  const CANVAS_W    = 1080
+  const CANVAS_H    = 1920
+  const LOGO_H      = 960
+  const MAX_MINI_H  = 760
+  const MAX_VIDEO_W = 680
+  const BORDER_W    = 3
+  const EDGE_MARGIN = 20
 
   const previewH = 280
-  const previewW = Math.round(previewH * CANVAS_W / CANVAS_H)   // ~157px
+  const previewW = Math.round(previewH * CANVAS_W / CANVAS_H)  // ~157px
   const scale    = previewH / CANVAS_H
 
   const sizePct = parseInt(size) / 100
 
-  // Dimensions approximatives de la mini-vidéo (on suppose un ratio neutre)
-  const miniW = Math.max(4, Math.round(MAX_VIDEO_W * sizePct * scale))
-  const miniH = Math.max(4, Math.round(MAX_MINI_H  * sizePct * scale))
-  const bw    = Math.max(1, Math.round(BORDER_W * scale))
+  const miniW  = Math.max(4, Math.round(MAX_VIDEO_W * sizePct * scale))
+  const miniH  = Math.max(4, Math.round(MAX_MINI_H  * sizePct * scale))
+  const bw     = Math.max(1, Math.round(BORDER_W * scale))
   const totalW = miniW + bw * 2
   const totalH = miniH + bw * 2
+  const edgeM  = EDGE_MARGIN * scale
 
-  // Zone disponible en coordonnées preview
-  const zoneTopPx  = (LOGO_H + SPACING_TOP) * scale
-  const zoneHPx    = (CANVAS_H - SPACING_BOTTOM - LOGO_H - SPACING_TOP) * scale
-  const remainingH = Math.max(0, zoneHPx - totalH)
-  const remainingW = Math.max(0, previewW - totalW)
-  const edgeM      = EDGE_MARGIN * scale
-
-  // Décodage de la position
+  // Calcul sur canvas complet (miroir exact du backend)
   const pos    = position.toLowerCase()
   const hAlign = pos.includes('left') ? 'left' : pos.includes('right') ? 'right' : 'center'
   const vAlign = pos.includes('top')  ? 'top'  : pos.includes('bottom') ? 'bottom' : 'center'
 
-  let bx = hAlign === 'left'   ? edgeM
-         : hAlign === 'right'  ? Math.max(edgeM, previewW - totalW - edgeM)
-         : Math.max(0, remainingW / 2)
+  const bx = hAlign === 'left'  ? edgeM
+           : hAlign === 'right' ? Math.max(edgeM, previewW - totalW - edgeM)
+           : Math.max(0, (previewW - totalW) / 2)
 
-  let by = vAlign === 'top'    ? zoneTopPx + edgeM
-         : vAlign === 'bottom' ? zoneTopPx + Math.max(0, remainingH - edgeM)
-         : zoneTopPx + remainingH / 2
+  const by = vAlign === 'top'    ? edgeM
+           : vAlign === 'bottom' ? Math.max(edgeM, previewH - totalH - edgeM)
+           : Math.max(0, (previewH - totalH) / 2)
+
+  // Ligne de séparation logo (repère visuel, pas une contrainte)
+  const logoLinePx = LOGO_H * scale
 
   return (
     <div
       className="relative bg-gray-950 rounded-lg overflow-hidden border border-gray-700 flex-shrink-0"
       style={{ width: previewW, height: previewH }}
-      title="Aperçu de la disposition finale"
+      title="Aperçu de la disposition finale — la ligne pointillée indique la zone logo par défaut"
     >
-      {/* Zone logo (haut) */}
-      <div
-        className="absolute top-0 left-0 right-0 flex items-center justify-center border-b border-gray-700"
-        style={{ height: LOGO_H * scale, background: 'rgba(30,30,40,0.9)' }}
-      >
-        <span className="text-[8px] text-gray-600 font-mono uppercase tracking-widest rotate-0">
-          Zone Logo
-        </span>
-      </div>
+      {/* Canvas uniforme */}
+      <div className="absolute inset-0" style={{ background: 'rgba(15,15,28,0.98)' }} />
 
-      {/* Zone disponible mini-vidéo (bas) */}
+      {/* Repère zone logo (guide discret, non contraignant) */}
+      <div
+        className="absolute left-0 right-0 flex items-center justify-center"
+        style={{ top: 0, height: logoLinePx, background: 'rgba(30,30,50,0.6)' }}
+      >
+        <span className="text-[7px] text-gray-700 font-mono uppercase tracking-widest">logo</span>
+      </div>
       <div
         className="absolute left-0 right-0"
-        style={{ top: LOGO_H * scale, height: (CANVAS_H - LOGO_H) * scale, background: 'rgba(15,15,25,0.95)' }}
+        style={{
+          top: logoLinePx - 0.5,
+          height: 1,
+          background: 'rgba(100,100,140,0.35)',
+          borderTop: '1px dashed rgba(100,100,160,0.4)',
+        }}
       />
 
-      {/* Mini-vidéo */}
+      {/* Mini-vidéo — peut être partout sur le canvas */}
       <div
         className="absolute rounded flex items-center justify-center"
         style={{
@@ -181,17 +179,17 @@ function PortraitPreview({ size, position }: { size: string; position: string })
           top: by,
           width: totalW,
           height: totalH,
-          background: 'rgba(124,58,237,0.75)',
+          background: 'rgba(124,58,237,0.80)',
           border: `${bw}px solid rgba(255,255,255,0.85)`,
           boxSizing: 'border-box',
-          transition: 'all 0.15s ease',
+          transition: 'left 0.15s ease, top 0.15s ease, width 0.15s ease, height 0.15s ease',
+          zIndex: 2,
         }}
       >
         <span className="text-[7px] text-white font-bold leading-none">{size}%</span>
       </div>
 
-      {/* Label axe bas */}
-      <div className="absolute bottom-1 left-0 right-0 flex justify-center">
+      <div className="absolute bottom-1 left-0 right-0 flex justify-center" style={{ zIndex: 3 }}>
         <span className="text-[7px] text-gray-700 font-mono">aperçu</span>
       </div>
     </div>
@@ -630,7 +628,7 @@ function PortraitForm({ onReady, preselectedJobId }: {
   const [borderColor, setBorderColor] = useState('white')
   const [useGpu,      setUseGpu]      = useState(true)
   const [size,        setSize]        = useState('90')
-  const [position,    setPosition]    = useState('center')
+  const [position,    setPosition]    = useState('bottom')
 
   useEffect(() => { onReady(bg && content) }, [bg, content, onReady])
 
