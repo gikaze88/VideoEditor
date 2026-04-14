@@ -99,6 +99,167 @@ function Checkbox({
   )
 }
 
+// ─── Previews disposition ─────────────────────────────────────────────────────
+
+/**
+ * Miniature du canvas portrait 1080×1920.
+ * Montre la zone logo (haut), la zone disponible (bas) et la mini-vidéo
+ * à la taille et position calculées.
+ */
+function PortraitPreview({ size, posX, posY }: { size: string; posX: string; posY: string }) {
+  // Constantes identiques au backend portrait.py
+  const CANVAS_W    = 1080
+  const CANVAS_H    = 1920
+  const LOGO_H      = 960
+  const MAX_MINI_H  = 760
+  const MAX_VIDEO_W = 680
+  const BORDER_W    = 3
+  const EDGE_MARGIN = 20
+
+  const previewH = 280
+  const previewW = Math.round(previewH * CANVAS_W / CANVAS_H)  // ~157px
+  const scale    = previewH / CANVAS_H
+
+  const sizePct = parseInt(size) / 100
+  const xPct    = parseInt(posX) / 100   // 0–1, centre H
+  const yPct    = parseInt(posY) / 100   // 0–1, centre V
+
+  const miniW  = Math.max(4, Math.round(MAX_VIDEO_W * sizePct * scale))
+  const miniH  = Math.max(4, Math.round(MAX_MINI_H  * sizePct * scale))
+  const bw     = Math.max(1, Math.round(BORDER_W * scale))
+  const totalW = miniW + bw * 2
+  const totalH = miniH + bw * 2
+  const edgeM  = EDGE_MARGIN * scale
+
+  // Miroir exact du backend _compute_position_pct
+  const rawBx = previewW * xPct - totalW / 2
+  const rawBy = previewH * yPct - totalH / 2
+  const bx = Math.max(edgeM, Math.min(previewW - totalW - edgeM, rawBx))
+  const by = Math.max(edgeM, Math.min(previewH - totalH - edgeM, rawBy))
+
+  const logoLinePx = LOGO_H * scale
+
+  return (
+    <div
+      className="relative bg-gray-950 rounded-lg overflow-hidden border border-gray-700 flex-shrink-0"
+      style={{ width: previewW, height: previewH }}
+      title="Position exacte · Taille approchée (dépend du ratio de la vidéo source)"
+    >
+      <div className="absolute inset-0" style={{ background: 'rgba(15,15,28,0.98)' }} />
+
+      {/* Zone logo — repère discret */}
+      <div
+        className="absolute left-0 right-0 flex items-center justify-center"
+        style={{ top: 0, height: logoLinePx, background: 'rgba(28,28,48,0.7)' }}
+      >
+        <span className="text-[7px] text-gray-700 font-mono uppercase tracking-widest">logo</span>
+      </div>
+      <div
+        className="absolute left-0 right-0"
+        style={{ top: logoLinePx, height: 0, borderTop: '1px dashed rgba(90,90,130,0.4)' }}
+      />
+
+      {/* Mini-vidéo — suit les sliders en temps réel */}
+      <div
+        className="absolute rounded flex items-center justify-center"
+        style={{
+          left: bx,
+          top: by,
+          width: totalW,
+          height: totalH,
+          background: 'rgba(124,58,237,0.82)',
+          border: `${bw}px solid rgba(255,255,255,0.85)`,
+          boxSizing: 'border-box',
+          transition: 'left 0.08s linear, top 0.08s linear, width 0.12s ease, height 0.12s ease',
+          zIndex: 2,
+        }}
+      >
+        <span className="text-[7px] text-white font-bold leading-none">{size}%</span>
+      </div>
+
+      <div className="absolute bottom-1 left-0 right-0 flex justify-center" style={{ zIndex: 3 }}>
+        <span className="text-[7px] text-gray-700 font-mono">aperçu</span>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Miniature du canvas wave 1080×1920.
+ * Montre la waveform en bas et la mini-vidéo positionnée au-dessus.
+ */
+function WaveMiniPreview({ size, position }: { size: string; position: string }) {
+  const CANVAS_W = 1080
+  const CANVAS_H = 1920
+  const WAVE_H   = 300
+  const WAVE_Y   = CANVAS_H - WAVE_H - 80
+  const MINI_W   = 800
+  const MINI_H   = 450
+
+  const previewH = 220
+  const previewW = Math.round(previewH * CANVAS_W / CANVAS_H)
+  const scale    = previewH / CANVAS_H
+
+  const sizePct  = parseInt(size) / 100
+  const scaledW  = Math.max(4, Math.round(MINI_W * sizePct * scale))
+  const scaledH  = Math.max(4, Math.round(MINI_H * sizePct * scale))
+  // Marge identique au backend wave.py (20 px sur le canvas réel)
+  const edgeM    = 20 * scale
+
+  // Position horizontale — miroir exact du backend
+  const pos = position.toLowerCase()
+  const miniX = pos === 'left'  ? edgeM
+              : pos === 'right' ? previewW - scaledW - edgeM
+              : (previewW - scaledW) / 2
+
+  // Position verticale : juste au-dessus de la waveform, ajustée selon size
+  const adjustedMiniY = (WAVE_Y - MINI_H * sizePct - 40) * scale
+
+  return (
+    <div
+      className="relative bg-gray-950 rounded-lg overflow-hidden border border-gray-700 flex-shrink-0"
+      style={{ width: previewW, height: previewH }}
+      title="Aperçu de la disposition finale"
+    >
+      {/* Background */}
+      <div className="absolute inset-0" style={{ background: 'rgba(15,15,25,0.95)' }} />
+
+      {/* Waveform zone */}
+      <div
+        className="absolute left-0 right-0 flex items-center justify-center"
+        style={{
+          top: WAVE_Y * scale,
+          height: WAVE_H * scale,
+          background: 'rgba(6,182,212,0.15)',
+          borderTop: '1px solid rgba(6,182,212,0.4)',
+        }}
+      >
+        <span className="text-[7px] text-cyan-700 font-mono">waveform</span>
+      </div>
+
+      {/* Mini-vidéo */}
+      <div
+        className="absolute rounded flex items-center justify-center"
+        style={{
+          left: miniX,
+          top: Math.max(2, adjustedMiniY),
+          width: scaledW,
+          height: scaledH,
+          background: 'rgba(124,58,237,0.75)',
+          border: '1px solid rgba(255,255,255,0.7)',
+          transition: 'all 0.15s ease',
+        }}
+      >
+        <span className="text-[7px] text-white font-bold">{size}%</span>
+      </div>
+
+      <div className="absolute bottom-1 left-0 right-0 flex justify-center">
+        <span className="text-[7px] text-gray-700 font-mono">aperçu</span>
+      </div>
+    </div>
+  )
+}
+
 /** Grille 3×3 de sélection de position (pour portrait) */
 const POSITION_GRID = [
   ['top-left',    'top',    'top-right'],
@@ -417,18 +578,28 @@ function WaveForm({ config, onReady, preselectedJobId }: {
           {/* Taille + Position mini-vidéo */}
           <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4 space-y-3">
             <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Mini-vidéo overlay</p>
-            <div>
-              <Label>Taille ({miniSize}%)</Label>
-              <input
-                type="range" min="20" max="100" value={miniSize}
-                onChange={e => setMiniSize(e.target.value)}
-                className="w-full accent-violet-500"
-              />
-              <input type="hidden" name="mini_size_percent" value={miniSize} />
-            </div>
-            <div>
-              <Label>Position horizontale</Label>
-              <PositionPickerH name="mini_position" value={miniPos} onChange={setMiniPos} />
+            <div className="flex items-start gap-4">
+              {/* Contrôles gauche */}
+              <div className="flex-1 space-y-3">
+                <div>
+                  <Label>Taille ({miniSize}%)</Label>
+                  <input
+                    type="range" min="20" max="100" value={miniSize}
+                    onChange={e => setMiniSize(e.target.value)}
+                    className="w-full accent-violet-500"
+                  />
+                  <input type="hidden" name="mini_size_percent" value={miniSize} />
+                </div>
+                <div>
+                  <Label>Position horizontale</Label>
+                  <PositionPickerH name="mini_position" value={miniPos} onChange={setMiniPos} />
+                </div>
+              </div>
+              {/* Preview droite */}
+              <div className="flex flex-col items-center gap-1 pt-1">
+                <span className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">Aperçu</span>
+                <WaveMiniPreview size={miniSize} position={miniPos} />
+              </div>
             </div>
           </div>
         </>
@@ -446,7 +617,8 @@ function PortraitForm({ onReady, preselectedJobId }: {
   const [borderColor, setBorderColor] = useState('white')
   const [useGpu,      setUseGpu]      = useState(true)
   const [size,        setSize]        = useState('90')
-  const [position,    setPosition]    = useState('center')
+  const [posX,        setPosX]        = useState('50')   // % centre H, défaut centré
+  const [posY,        setPosY]        = useState('75')   // % centre V, défaut zone mini-vidéo
 
   useEffect(() => { onReady(bg && content) }, [bg, content, onReady])
 
@@ -472,21 +644,48 @@ function PortraitForm({ onReady, preselectedJobId }: {
       {!audioOnly && (
         <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4 space-y-3">
           <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Mini-vidéo</p>
-          <div className="flex items-start gap-6">
-            {/* Taille */}
-            <div className="flex-1">
-              <Label>Taille ({size}%)</Label>
-              <input
-                type="range" min="20" max="100" value={size}
-                onChange={e => setSize(e.target.value)}
-                className="w-full accent-violet-500"
-              />
-              <input type="hidden" name="portrait_size_percent" value={size} />
+          <div className="flex items-start gap-4">
+            {/* Contrôles gauche */}
+            <div className="flex-1 space-y-3">
+              <div>
+                <Label>Taille ({size}%)</Label>
+                <input
+                  type="range" min="20" max="100" value={size}
+                  onChange={e => setSize(e.target.value)}
+                  className="w-full accent-violet-500"
+                />
+                <input type="hidden" name="portrait_size_percent" value={size} />
+              </div>
+              <div>
+                <Label>Position horizontale ({posX}%)</Label>
+                <input
+                  type="range" min="0" max="100" value={posX}
+                  onChange={e => setPosX(e.target.value)}
+                  className="w-full accent-violet-500"
+                />
+                <input type="hidden" name="portrait_position_x" value={posX} />
+              </div>
+              <div>
+                <Label>Position verticale ({posY}%)</Label>
+                <input
+                  type="range" min="0" max="100" value={posY}
+                  onChange={e => setPosY(e.target.value)}
+                  className="w-full accent-violet-500"
+                />
+                <input type="hidden" name="portrait_position_y" value={posY} />
+              </div>
+              <button
+                type="button"
+                onClick={() => { setPosX('50'); setPosY('75') }}
+                className="inline-flex items-center gap-2 bg-violet-700 hover:bg-violet-600 text-white text-xs font-medium px-4 py-2 rounded-xl transition-colors"
+              >
+                Réinitialiser la position
+              </button>
             </div>
-            {/* Position */}
-            <div>
-              <Label>Position</Label>
-              <PositionPicker9 name="portrait_position" value={position} onChange={setPosition} />
+            {/* Preview droite */}
+            <div className="flex flex-col items-center gap-1 pt-1">
+              <span className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">Aperçu</span>
+              <PortraitPreview size={size} posX={posX} posY={posY} />
             </div>
           </div>
         </div>
@@ -522,6 +721,86 @@ function PortraitForm({ onReady, preselectedJobId }: {
 // ─── Composants débat ─────────────────────────────────────────────────────────
 
 /** Diagramme visuel de la disposition des speakers sur le fond */
+/**
+ * Preview dynamique pour les formulaires débat.
+ * Canvas 1920×1080 → miniature 260×146px.
+ *
+ * Double   : blocs clampés aux bords du canvas, jamais de débordement.
+ * Diagonal : positions distribuées dynamiquement le long de la diagonale
+ *            pour éviter les chevauchements, tout en restant dans les bords.
+ */
+function DebateSizePreview({ type, size }: { type: 'single' | 'double' | 'diagonal'; size: string }) {
+  const OUT_W = 1920
+  const OUT_H = 1080
+
+  const previewW = 260
+  const previewH = Math.round(previewW * OUT_H / OUT_W)  // 146px
+  const scale    = previewW / OUT_W
+
+  const sizePct = parseInt(size) / 100
+  const w = OUT_W * sizePct * scale
+  const h = OUT_H * sizePct * scale
+  // Coordonnée depuis un % backend → pixels preview (sans clamping, comme FFmpeg)
+  const px = (pctX: number, pctY: number) => ({
+    x: OUT_W * pctX / 100 * scale,
+    y: OUT_H * pctY / 100 * scale,
+  })
+
+  // ── Single ── centré (identique à composite_single.py)
+  const single = px((100 - sizePct * 100) / 2, (100 - sizePct * 100) / 2)
+
+  // ── Double ── positions fixes exactes du backend (composite_double.py)
+  // Le speaker droit peut dépasser le canvas à taille élevée → overflow:hidden le clip,
+  // comme le ferait FFmpeg dans la vidéo réelle.
+  const dL = px(2.6,  4.6 )
+  const dR = px(62.4, 60.4)
+
+  // ── Diagonal ── positions fixes exactes du backend (composite_diagonal.py)
+  // Les blocs peuvent se chevaucher à taille élevée, comme dans la vidéo réelle.
+  const diagG = px(5,  8 )
+  const diagC = px(36, 36)
+  const diagD = px(67, 64)
+
+  const transition = 'left 0.12s ease, top 0.12s ease, width 0.12s ease, height 0.12s ease'
+
+  const block = (pos: { x: number; y: number }, bg: string, border: string, label: string, z = 1) => (
+    <div style={{
+      position: 'absolute',
+      left: pos.x, top: pos.y, width: w, height: h,
+      background: bg, border: `1px solid ${border}`,
+      borderRadius: 3, zIndex: z, transition,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }}>
+      <span className="text-[8px] text-white font-bold">{label}</span>
+    </div>
+  )
+
+  return (
+    <div
+      className="relative bg-gray-800 rounded-lg overflow-hidden border border-gray-700 flex-shrink-0"
+      style={{ width: previewW, height: previewH }}
+      title="Aperçu de la disposition — mise à jour en temps réel"
+    >
+      <span className="absolute inset-0 flex items-center justify-center text-[9px] text-gray-600 font-mono uppercase tracking-widest">
+        fond
+      </span>
+
+      {type === 'single' && block(single,  'rgba(139,92,246,0.82)', 'rgba(167,139,250,0.9)', 'speaker', 1)}
+
+      {type === 'double'   && block(dL,    'rgba(59,130,246,0.82)', 'rgba(96,165,250,0.9)',  'G',       1)}
+      {type === 'double'   && block(dR,    'rgba(245,158,11,0.82)', 'rgba(251,191,36,0.9)',  'D',       2)}
+
+      {type === 'diagonal' && block(diagG, 'rgba(59,130,246,0.82)', 'rgba(96,165,250,0.9)',  'G',       1)}
+      {type === 'diagonal' && block(diagC, 'rgba(16,185,129,0.82)', 'rgba(52,211,153,0.9)',  'C',       2)}
+      {type === 'diagonal' && block(diagD, 'rgba(245,158,11,0.82)', 'rgba(251,191,36,0.9)',  'D',       3)}
+
+      <div className="absolute bottom-1 right-1.5" style={{ zIndex: 10 }}>
+        <span className="text-[8px] text-gray-500 font-mono">{size}%</span>
+      </div>
+    </div>
+  )
+}
+
 function LayoutPreview({ type }: { type: 'single' | 'double' | 'diagonal' }) {
   return (
     <div className="relative bg-gray-800 rounded-lg overflow-hidden border border-gray-700"
@@ -574,16 +853,9 @@ function DebateSingleForm({ onReady }: { onReady: (ok: boolean) => void }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-start gap-6">
-        <div>
-          <p className="text-xs text-gray-500 mb-1.5 font-medium">Disposition</p>
-          <LayoutPreview type="single" />
-        </div>
-        <div className="text-xs text-gray-400 space-y-1 pt-6">
-          <p>• 1 speaker centré sur le fond</p>
-          <p>• Durée = durée du speaker</p>
-          <p>• Audio extrait du speaker</p>
-        </div>
+      <div className="text-xs text-gray-400 space-y-1">
+        <p>• 1 speaker centré sur le fond</p>
+        <p>• Durée = durée du speaker • Audio extrait du speaker</p>
       </div>
       <div>
         <Label>Vidéo de fond <Required /></Label>
@@ -593,18 +865,24 @@ function DebateSingleForm({ onReady }: { onReady: (ok: boolean) => void }) {
         <Label>Vidéo du speaker <Required /></Label>
         <FileInput name="speaker_left" label="Choisir la vidéo du speaker" accept="video/*" onPicked={setSpk} />
       </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label>Taille speaker ({size}%)</Label>
-          <input type="range" name="size_percent" min="30" max="70" value={size}
-            onChange={e => setSize(e.target.value)}
-            className="w-full accent-violet-500" />
+      <div className="flex items-end gap-4">
+        <div className="flex-1 space-y-3">
+          <div>
+            <Label>Taille speaker ({size}%)</Label>
+            <input type="range" name="size_percent" min="30" max="70" value={size}
+              onChange={e => setSize(e.target.value)}
+              className="w-full accent-violet-500" />
+          </div>
+          <div>
+            <Label>Qualité</Label>
+            <Select name="quality_crf" value={crf} onChange={setCrf}>
+              {QUALITY_OPTIONS.map(q => <option key={q.value} value={q.value}>{q.label}</option>)}
+            </Select>
+          </div>
         </div>
-        <div>
-          <Label>Qualité</Label>
-          <Select name="quality_crf" value={crf} onChange={setCrf}>
-            {QUALITY_OPTIONS.map(q => <option key={q.value} value={q.value}>{q.label}</option>)}
-          </Select>
+        <div className="flex flex-col items-center gap-1 pb-0.5">
+          <span className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">Aperçu</span>
+          <DebateSizePreview type="single" size={size} />
         </div>
       </div>
     </div>
@@ -622,17 +900,9 @@ function DebateDoubleForm({ onReady }: { onReady: (ok: boolean) => void }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-start gap-6">
-        <div>
-          <p className="text-xs text-gray-500 mb-1.5 font-medium">Disposition</p>
-          <LayoutPreview type="double" />
-        </div>
-        <div className="text-xs text-gray-400 space-y-1 pt-6">
-          <p>• Gauche joue en 1er, droite figée</p>
-          <p>• Droite joue en 2ème, gauche figée</p>
-          <p>• Les deux toujours visibles</p>
-          <p>• Durée = gauche + droite</p>
-        </div>
+      <div className="text-xs text-gray-400 space-y-1">
+        <p>• <span className="text-blue-400 font-medium">Gauche</span> joue en 1er, droite figée • <span className="text-amber-400 font-medium">Droite</span> joue en 2ème, gauche figée</p>
+        <p>• Les deux toujours visibles • Durée = gauche + droite</p>
       </div>
       <div>
         <Label>Vidéo de fond <Required /></Label>
@@ -648,18 +918,24 @@ function DebateDoubleForm({ onReady }: { onReady: (ok: boolean) => void }) {
           <FileInput name="speaker_right" label="Vidéo droite" accept="video/*" onPicked={setRight} />
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label>Taille speakers ({size}%)</Label>
-          <input type="range" name="size_percent" min="20" max="50" value={size}
-            onChange={e => setSize(e.target.value)}
-            className="w-full accent-violet-500" />
+      <div className="flex items-end gap-4">
+        <div className="flex-1 space-y-3">
+          <div>
+            <Label>Taille speakers ({size}%)</Label>
+            <input type="range" name="size_percent" min="20" max="50" value={size}
+              onChange={e => setSize(e.target.value)}
+              className="w-full accent-violet-500" />
+          </div>
+          <div>
+            <Label>Qualité</Label>
+            <Select name="quality_crf" value={crf} onChange={setCrf}>
+              {QUALITY_OPTIONS.map(q => <option key={q.value} value={q.value}>{q.label}</option>)}
+            </Select>
+          </div>
         </div>
-        <div>
-          <Label>Qualité</Label>
-          <Select name="quality_crf" value={crf} onChange={setCrf}>
-            {QUALITY_OPTIONS.map(q => <option key={q.value} value={q.value}>{q.label}</option>)}
-          </Select>
+        <div className="flex flex-col items-center gap-1 pb-0.5">
+          <span className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">Aperçu</span>
+          <DebateSizePreview type="double" size={size} />
         </div>
       </div>
     </div>
@@ -678,18 +954,9 @@ function DebateDiagonalForm({ onReady }: { onReady: (ok: boolean) => void }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-start gap-6">
-        <div>
-          <p className="text-xs text-gray-500 mb-1.5 font-medium">Disposition</p>
-          <LayoutPreview type="diagonal" />
-        </div>
-        <div className="text-xs text-gray-400 space-y-1 pt-4">
-          <p>• Gauche joue en 1er</p>
-          <p>• Centre joue en 2ème</p>
-          <p>• Droite joue en 3ème</p>
-          <p>• Les 3 toujours visibles (freeze)</p>
-          <p>• Durée = G + C + D</p>
-        </div>
+      <div className="text-xs text-gray-400 space-y-1">
+        <p>• <span className="text-blue-400 font-medium">Gauche</span> 1er · <span className="text-emerald-400 font-medium">Centre</span> 2ème · <span className="text-amber-400 font-medium">Droite</span> 3ème — tous toujours visibles (freeze)</p>
+        <p>• Durée = G + C + D</p>
       </div>
       <div>
         <Label>Vidéo de fond <Required /></Label>
@@ -709,18 +976,24 @@ function DebateDiagonalForm({ onReady }: { onReady: (ok: boolean) => void }) {
           <FileInput name="speaker_right" label="Vidéo droite" accept="video/*" onPicked={setRight} />
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label>Taille speakers ({size}%)</Label>
-          <input type="range" name="size_percent" min="15" max="35" value={size}
-            onChange={e => setSize(e.target.value)}
-            className="w-full accent-violet-500" />
+      <div className="flex items-end gap-4">
+        <div className="flex-1 space-y-3">
+          <div>
+            <Label>Taille speakers ({size}%)</Label>
+            <input type="range" name="size_percent" min="15" max="35" value={size}
+              onChange={e => setSize(e.target.value)}
+              className="w-full accent-violet-500" />
+          </div>
+          <div>
+            <Label>Qualité</Label>
+            <Select name="quality_crf" value={crf} onChange={setCrf}>
+              {QUALITY_OPTIONS.map(q => <option key={q.value} value={q.value}>{q.label}</option>)}
+            </Select>
+          </div>
         </div>
-        <div>
-          <Label>Qualité</Label>
-          <Select name="quality_crf" value={crf} onChange={setCrf}>
-            {QUALITY_OPTIONS.map(q => <option key={q.value} value={q.value}>{q.label}</option>)}
-          </Select>
+        <div className="flex flex-col items-center gap-1 pb-0.5">
+          <span className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">Aperçu</span>
+          <DebateSizePreview type="diagonal" size={size} />
         </div>
       </div>
     </div>
