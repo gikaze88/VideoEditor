@@ -193,8 +193,8 @@ function WaveMiniPreview({ size, posX, posY }: { size: string; posX: string; pos
   const CANVAS_H    = 1920
   const WAVE_H      = 300
   const WAVE_Y      = CANVAS_H - WAVE_H - 80
-  const MINI_W      = 450   // portrait
-  const MINI_H      = 800
+  const MINI_W      = 680   // identique à MAX_VIDEO_W du pipeline portrait
+  const MINI_H      = 760   // identique à MAX_MINI_H du pipeline portrait
   const EDGE_MARGIN = 20
 
   const previewH = 220

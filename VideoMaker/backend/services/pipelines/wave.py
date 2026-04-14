@@ -21,8 +21,8 @@ CANVAS_W    = 1080
 CANVAS_H    = 1920
 WAVE_H      = 300
 WAVE_Y      = CANVAS_H - WAVE_H - 80
-MINI_W      = 450   # format portrait (largeur)
-MINI_H      = 800   # format portrait (hauteur)
+MINI_W      = 680   # identique à MAX_VIDEO_W du pipeline portrait
+MINI_H      = 760   # identique à MAX_MINI_H du pipeline portrait
 EDGE_MARGIN = 20
 
 
