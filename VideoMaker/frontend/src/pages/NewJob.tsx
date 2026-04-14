@@ -650,29 +650,32 @@ function PortraitForm({ onReady, preselectedJobId }: {
               <div>
                 <Label>Taille ({size}%)</Label>
                 <input
-                  type="range" min="20" max="100" value={size}
+                  type="range" min="20" max="100"
+                  name="portrait_size_percent"
+                  value={size}
                   onChange={e => setSize(e.target.value)}
                   className="w-full accent-violet-500"
                 />
-                <input type="hidden" name="portrait_size_percent" value={size} />
               </div>
               <div>
                 <Label>Position horizontale ({posX}%)</Label>
                 <input
-                  type="range" min="0" max="100" value={posX}
+                  type="range" min="0" max="100"
+                  name="portrait_position_x"
+                  value={posX}
                   onChange={e => setPosX(e.target.value)}
                   className="w-full accent-violet-500"
                 />
-                <input type="hidden" name="portrait_position_x" value={posX} />
               </div>
               <div>
                 <Label>Position verticale ({posY}%)</Label>
                 <input
-                  type="range" min="0" max="100" value={posY}
+                  type="range" min="0" max="100"
+                  name="portrait_position_y"
+                  value={posY}
                   onChange={e => setPosY(e.target.value)}
                   className="w-full accent-violet-500"
                 />
-                <input type="hidden" name="portrait_position_y" value={posY} />
               </div>
               <button
                 type="button"
