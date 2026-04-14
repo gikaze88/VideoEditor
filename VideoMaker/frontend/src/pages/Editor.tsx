@@ -71,7 +71,7 @@ function UploadZone({ onUploaded }: { onUploaded: (info: SourceInfo) => void }) 
         onDragLeave={() => setDragging(false)}
         onDrop={onDrop}
         onClick={() => progress === null && inputRef.current?.click()}
-        className={`w-full max-w-lg border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer transition-all ${
+        className={`w-full max-w-lg border-2 border-dashed rounded-2xl p-6 sm:p-10 md:p-12 text-center cursor-pointer transition-all ${
           dragging
             ? 'border-violet-400 bg-violet-500/10'
             : 'border-gray-600 bg-gray-900 hover:border-violet-500 hover:bg-gray-800'
@@ -411,15 +411,15 @@ export default function Editor() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Éditeur de clips</h1>
-          <p className="text-gray-500 text-sm mt-0.5">{source.filename}</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-white">Éditeur de clips</h1>
+          <p className="text-gray-500 text-sm mt-0.5 truncate max-w-[260px] sm:max-w-none">{source.filename}</p>
         </div>
         <button
           type="button"
           onClick={() => { resetEditorState(); setSourceState(null); setClipsState([]); setPendingStartState(null) }}
-          className="text-xs text-gray-500 hover:text-gray-300 border border-gray-700 hover:border-gray-500 px-3 py-1.5 rounded-lg transition-colors"
+          className="self-start sm:self-auto text-xs text-gray-500 hover:text-gray-300 border border-gray-700 hover:border-gray-500 px-3 py-2 rounded-lg transition-colors"
         >
           Changer de vidéo
         </button>
@@ -459,7 +459,7 @@ export default function Editor() {
           </div>
 
           {/* Controls row */}
-          <div className="flex items-center gap-3 bg-gray-900 rounded-2xl px-4 py-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 bg-gray-900 rounded-2xl px-4 py-3">
             {/* Seek -10s */}
             <button
               type="button"
@@ -499,7 +499,7 @@ export default function Editor() {
             </span>
 
             {/* Speed */}
-            <div className="ml-auto flex items-center gap-1">
+            <div className="ml-auto flex flex-wrap items-center gap-1">
               {SPEEDS.map(s => (
                 <button
                   key={s}

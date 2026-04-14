@@ -248,7 +248,7 @@ export default function JobDetail() {
       </div>
 
       {/* Carte statut */}
-      <div className="bg-gray-900 rounded-2xl p-6 space-y-4">
+      <div className="bg-gray-900 rounded-2xl p-4 sm:p-6 space-y-4">
         <div className="flex items-center gap-3">
           <StatusIcon size={24} className={cfg.color} />
           <div>
@@ -340,7 +340,7 @@ export default function JobDetail() {
 
           {ytAuth && (
             <div className="space-y-3 text-xs">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-gray-300 mb-1">Titre</label>
                   <input
@@ -374,7 +374,7 @@ export default function JobDetail() {
                 />
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-gray-300 mb-1">Tags</label>
                   <input
@@ -413,7 +413,7 @@ export default function JobDetail() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 items-end">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:items-end">
                 <div>
                   <label className="block text-gray-300 mb-1">Playlist</label>
                   <select
