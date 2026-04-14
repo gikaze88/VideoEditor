@@ -25,8 +25,8 @@ from ._ffmpeg import check_ffmpeg, run_ffmpeg, slug_from_title
 CANVAS_W    = 1920
 CANVAS_H    = 1080
 MAX_MINI_W  = 760   # largeur max mini-vidéo
-MAX_MINI_H  = 427   # hauteur max (ratio 16:9 — clairement paysage)
-MIN_VIDEO_H = 240   # hauteur minimale avant recadrage
+MAX_MINI_H  = 680   # hauteur max (préserve les visages sur les formats variés)
+MIN_VIDEO_H = 400   # hauteur minimale avant recadrage
 BORDER_W    = 3
 EDGE_MARGIN = 20    # marge minimale en pixels par rapport aux bords
 
@@ -89,7 +89,7 @@ def run(job_id: str, params: dict, output_dir: Path, log_path: Path) -> Path:
     use_gpu    = bool(params.get("use_gpu", True))
     size_pct   = max(10, min(100, int(params.get("size_percent", 90))))
     pos_x_pct  = max(0.0, min(1.0, float(params.get("position_x_pct", 75)) / 100))
-    pos_y_pct  = max(0.0, min(1.0, float(params.get("position_y_pct", 75)) / 100))
+    pos_y_pct  = max(0.0, min(1.0, float(params.get("position_y_pct", 50)) / 100))
 
     with open(log_path, "a", encoding="utf-8", errors="replace") as log:
         log.write(f"[landscape] bg={bg_path}\n")

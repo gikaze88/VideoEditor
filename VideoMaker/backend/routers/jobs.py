@@ -98,7 +98,7 @@ async def create_job(
     portrait_position_y: Optional[str] = Form("75"),
     landscape_size_percent: Optional[str] = Form("90"),
     landscape_position_x: Optional[str] = Form("75"),
-    landscape_position_y: Optional[str] = Form("75"),
+    landscape_position_y: Optional[str] = Form("50"),
     # wave : taille + position mini-vidéo (modes mini/hybrid)
     mini_size_percent: Optional[str] = Form("80"),
     mini_position_x: Optional[str] = Form("50"),

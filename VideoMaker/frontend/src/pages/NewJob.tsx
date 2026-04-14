@@ -745,7 +745,7 @@ function LandscapePreview({ size, posX, posY }: { size: string; posX: string; po
   const CANVAS_W    = 1920
   const CANVAS_H    = 1080
   const MAX_MINI_W  = 760
-  const MAX_MINI_H  = 427   // 16:9 — clairement paysage
+  const MAX_MINI_H  = 680
   const BORDER_W    = 3
   const EDGE_MARGIN = 20
 
@@ -811,8 +811,8 @@ function LandscapeForm({ onReady, preselectedJobId }: {
   const [borderColor, setBorderColor] = useState('white')
   const [useGpu,      setUseGpu]      = useState(true)
   const [size,        setSize]        = useState('90')
-  const [posX,        setPosX]        = useState('75')   // % centre H, défaut bas-droit
-  const [posY,        setPosY]        = useState('75')   // % centre V, défaut bas-droit
+  const [posX,        setPosX]        = useState('75')   // % centre H, défaut droite
+  const [posY,        setPosY]        = useState('50')   // % centre V, défaut milieu vertical
 
   useEffect(() => { onReady(bg && content) }, [bg, content, onReady])
 
@@ -873,7 +873,7 @@ function LandscapeForm({ onReady, preselectedJobId }: {
               </div>
               <button
                 type="button"
-                onClick={() => { setPosX('75'); setPosY('75') }}
+                onClick={() => { setPosX('75'); setPosY('50') }}
                 className="inline-flex items-center gap-2 bg-violet-700 hover:bg-violet-600 text-white text-xs font-medium px-4 py-2 rounded-xl transition-colors"
               >
                 Réinitialiser la position
