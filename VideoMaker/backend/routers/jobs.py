@@ -97,8 +97,9 @@ async def create_job(
     portrait_position_x: Optional[str] = Form("50"),
     portrait_position_y: Optional[str] = Form("75"),
     # wave : taille + position mini-vidéo (modes mini/hybrid)
-    mini_size_percent: Optional[str] = Form("100"),
-    mini_position: Optional[str] = Form("center"),
+    mini_size_percent: Optional[str] = Form("80"),
+    mini_position_x: Optional[str] = Form("50"),
+    mini_position_y: Optional[str] = Form("40"),
     # fichiers uploadés
     video_file: Optional[UploadFile] = File(None),
     video_files: Optional[list[UploadFile]] = File(None),
@@ -215,8 +216,9 @@ async def create_job(
             "content_video_path": saved.get("content_video_path"),
             "speed_factor": float(speed_factor),
             "wave_color": wave_color,
-            "mini_size_percent": int(mini_size_percent or 100),
-            "mini_position": mini_position or "center",
+            "mini_size_percent": int(mini_size_percent or 80),
+            "mini_position_x_pct": float(mini_position_x or 50),
+            "mini_position_y_pct": float(mini_position_y or 40),
         }
     elif style == "portrait":
         params = {

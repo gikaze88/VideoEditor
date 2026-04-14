@@ -188,13 +188,14 @@ function PortraitPreview({ size, posX, posY }: { size: string; posX: string; pos
  * Miniature du canvas wave 1080×1920.
  * Montre la waveform en bas et la mini-vidéo positionnée au-dessus.
  */
-function WaveMiniPreview({ size, position }: { size: string; position: string }) {
-  const CANVAS_W = 1080
-  const CANVAS_H = 1920
-  const WAVE_H   = 300
-  const WAVE_Y   = CANVAS_H - WAVE_H - 80
-  const MINI_W   = 800
-  const MINI_H   = 450
+function WaveMiniPreview({ size, posX, posY }: { size: string; posX: string; posY: string }) {
+  const CANVAS_W    = 1080
+  const CANVAS_H    = 1920
+  const WAVE_H      = 300
+  const WAVE_Y      = CANVAS_H - WAVE_H - 80
+  const MINI_W      = 450   // portrait
+  const MINI_H      = 800
+  const EDGE_MARGIN = 20
 
   const previewH = 220
   const previewW = Math.round(previewH * CANVAS_W / CANVAS_H)
@@ -203,23 +204,21 @@ function WaveMiniPreview({ size, position }: { size: string; position: string })
   const sizePct  = parseInt(size) / 100
   const scaledW  = Math.max(4, Math.round(MINI_W * sizePct * scale))
   const scaledH  = Math.max(4, Math.round(MINI_H * sizePct * scale))
-  // Marge identique au backend wave.py (20 px sur le canvas réel)
-  const edgeM    = 20 * scale
 
-  // Position horizontale — miroir exact du backend
-  const pos = position.toLowerCase()
-  const miniX = pos === 'left'  ? edgeM
-              : pos === 'right' ? previewW - scaledW - edgeM
-              : (previewW - scaledW) / 2
-
-  // Position verticale : juste au-dessus de la waveform, ajustée selon size
-  const adjustedMiniY = (WAVE_Y - MINI_H * sizePct - 40) * scale
+  // Miroir exact de _compute_mini_position dans wave.py
+  const edgeM = EDGE_MARGIN * scale
+  const cx    = CANVAS_W * parseFloat(posX) / 100 * scale
+  const cy    = CANVAS_H * parseFloat(posY) / 100 * scale
+  const maxX  = previewW - scaledW - edgeM
+  const maxY  = previewH - scaledH - edgeM
+  const miniX = Math.max(edgeM, Math.min(cx - scaledW / 2, maxX))
+  const miniY = Math.max(edgeM, Math.min(cy - scaledH / 2, maxY))
 
   return (
     <div
       className="relative bg-gray-950 rounded-lg overflow-hidden border border-gray-700 flex-shrink-0"
       style={{ width: previewW, height: previewH }}
-      title="Aperçu de la disposition finale"
+      title="Aperçu de la disposition finale — taille approchée"
     >
       {/* Background */}
       <div className="absolute inset-0" style={{ background: 'rgba(15,15,25,0.95)' }} />
@@ -242,12 +241,12 @@ function WaveMiniPreview({ size, position }: { size: string; position: string })
         className="absolute rounded flex items-center justify-center"
         style={{
           left: miniX,
-          top: Math.max(2, adjustedMiniY),
+          top: miniY,
           width: scaledW,
           height: scaledH,
           background: 'rgba(124,58,237,0.75)',
           border: '1px solid rgba(255,255,255,0.7)',
-          transition: 'all 0.15s ease',
+          transition: 'left 0.12s ease, top 0.12s ease, width 0.12s ease, height 0.12s ease',
         }}
       >
         <span className="text-[7px] text-white font-bold">{size}%</span>
@@ -507,8 +506,9 @@ function WaveForm({ config, onReady, preselectedJobId }: {
   const [videoMode,  setVideoMode]  = useState('audio')
   const [speed,      setSpeed]      = useState('1.0')
   const [color,      setColor]      = useState('white')
-  const [miniSize,   setMiniSize]   = useState('100')
-  const [miniPos,    setMiniPos]    = useState('center')
+  const [miniSize,   setMiniSize]   = useState('80')
+  const [miniPosX,   setMiniPosX]   = useState('50')
+  const [miniPosY,   setMiniPosY]   = useState('40')
 
   const needsMini = videoMode === 'mini' || videoMode === 'hybrid'
 
@@ -584,21 +584,39 @@ function WaveForm({ config, onReady, preselectedJobId }: {
                 <div>
                   <Label>Taille ({miniSize}%)</Label>
                   <input
-                    type="range" min="20" max="100" value={miniSize}
+                    type="range" name="mini_size_percent" min="20" max="100" value={miniSize}
                     onChange={e => setMiniSize(e.target.value)}
                     className="w-full accent-violet-500"
                   />
-                  <input type="hidden" name="mini_size_percent" value={miniSize} />
                 </div>
                 <div>
-                  <Label>Position horizontale</Label>
-                  <PositionPickerH name="mini_position" value={miniPos} onChange={setMiniPos} />
+                  <Label>Position horizontale ({miniPosX}%)</Label>
+                  <input
+                    type="range" name="mini_position_x" min="0" max="100" value={miniPosX}
+                    onChange={e => setMiniPosX(e.target.value)}
+                    className="w-full accent-violet-500"
+                  />
                 </div>
+                <div>
+                  <Label>Position verticale ({miniPosY}%)</Label>
+                  <input
+                    type="range" name="mini_position_y" min="0" max="100" value={miniPosY}
+                    onChange={e => setMiniPosY(e.target.value)}
+                    className="w-full accent-violet-500"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setMiniPosX('50'); setMiniPosY('40') }}
+                  className="bg-violet-700 hover:bg-violet-600 text-white text-xs font-medium px-4 py-1.5 rounded-full transition-colors"
+                >
+                  Réinitialiser la position
+                </button>
               </div>
               {/* Preview droite */}
               <div className="flex flex-col items-center gap-1 pt-1">
                 <span className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">Aperçu</span>
-                <WaveMiniPreview size={miniSize} position={miniPos} />
+                <WaveMiniPreview size={miniSize} posX={miniPosX} posY={miniPosY} />
               </div>
             </div>
           </div>
