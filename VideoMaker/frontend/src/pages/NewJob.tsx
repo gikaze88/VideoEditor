@@ -143,7 +143,7 @@ function PortraitPreview({ size, posX, posY }: { size: string; posX: string; pos
     <div
       className="relative bg-gray-950 rounded-lg overflow-hidden border border-gray-700 flex-shrink-0"
       style={{ width: previewW, height: previewH }}
-      title="Aperçu en temps réel — la ligne pointillée indique la zone logo"
+      title="Position exacte · Taille approchée (dépend du ratio de la vidéo source)"
     >
       <div className="absolute inset-0" style={{ background: 'rgba(15,15,28,0.98)' }} />
 
@@ -203,12 +203,13 @@ function WaveMiniPreview({ size, position }: { size: string; position: string })
   const sizePct  = parseInt(size) / 100
   const scaledW  = Math.max(4, Math.round(MINI_W * sizePct * scale))
   const scaledH  = Math.max(4, Math.round(MINI_H * sizePct * scale))
-  const edgeM    = 3
+  // Marge identique au backend wave.py (20 px sur le canvas réel)
+  const edgeM    = 20 * scale
 
-  // Position horizontale
+  // Position horizontale — miroir exact du backend
   const pos = position.toLowerCase()
   const miniX = pos === 'left'  ? edgeM
-              : pos === 'right' ? Math.max(edgeM, previewW - scaledW - edgeM)
+              : pos === 'right' ? previewW - scaledW - edgeM
               : (previewW - scaledW) / 2
 
   // Position verticale : juste au-dessus de la waveform, ajustée selon size
@@ -739,46 +740,26 @@ function DebateSizePreview({ type, size }: { type: 'single' | 'double' | 'diagon
   const sizePct = parseInt(size) / 100
   const w = OUT_W * sizePct * scale
   const h = OUT_H * sizePct * scale
-  const M = 3  // marge intérieure en px preview
-
-  // Clamp une position (top-left) pour garder le bloc dans le canvas
-  const clamp = (rawX: number, rawY: number) => ({
-    x: Math.max(M, Math.min(previewW - w - M, rawX)),
-    y: Math.max(M, Math.min(previewH - h - M, rawY)),
+  // Coordonnée depuis un % backend → pixels preview (sans clamping, comme FFmpeg)
+  const px = (pctX: number, pctY: number) => ({
+    x: OUT_W * pctX / 100 * scale,
+    y: OUT_H * pctY / 100 * scale,
   })
 
-  // Coordonnée brute depuis un % backend
-  const raw = (pctX: number, pctY: number) =>
-    clamp(OUT_W * pctX / 100 * scale, OUT_H * pctY / 100 * scale)
+  // ── Single ── centré (identique à composite_single.py)
+  const single = px((100 - sizePct * 100) / 2, (100 - sizePct * 100) / 2)
 
-  // ── Single ── centré
-  const single = clamp((previewW - w) / 2, (previewH - h) / 2)
+  // ── Double ── positions fixes exactes du backend (composite_double.py)
+  // Le speaker droit peut dépasser le canvas à taille élevée → overflow:hidden le clip,
+  // comme le ferait FFmpeg dans la vidéo réelle.
+  const dL = px(2.6,  4.6 )
+  const dR = px(62.4, 60.4)
 
-  // ── Double ── positions backend clampées → jamais de débordement
-  const dL = raw(2.6,  4.6 )
-  const dR = raw(62.4, 60.4)
-
-  // ── Diagonal ── distribution dynamique anti-chevauchement
-  // On répartit 3 blocs le long de la diagonale en utilisant l'espace disponible
-  // (maxX = previewW - w - M, maxY = previewH - h - M)
-  const maxX = previewW - w - M
-  const maxY = previewH - h - M
-  // Fractions t=[0..1] sur la diagonale pour G / C / D
-  // On espace les blocs de sorte qu'ils ne se chevauchent pas.
-  // L'espacement minimal entre deux top-left pour qu'ils ne se touchent pas : (w+2)/(maxX)
-  const stepX = Math.max((w + 4) / maxX, 0.33)   // fraction minimale entre blocs
-  const stepY = Math.max((h + 4) / maxY, 0.33)
-  // Centre reste au milieu, gauche et droite s'écartent d'un step
-  const tCx = 0.5
-  const tGx = Math.max(0, tCx - stepX)
-  const tDx = Math.min(1, tCx + stepX)
-  const tCy = 0.5
-  const tGy = Math.max(0, tCy - stepY)
-  const tDy = Math.min(1, tCy + stepY)
-
-  const diagG = clamp(M + tGx * maxX, M + tGy * maxY)
-  const diagC = clamp(M + tCx * maxX, M + tCy * maxY)
-  const diagD = clamp(M + tDx * maxX, M + tDy * maxY)
+  // ── Diagonal ── positions fixes exactes du backend (composite_diagonal.py)
+  // Les blocs peuvent se chevaucher à taille élevée, comme dans la vidéo réelle.
+  const diagG = px(5,  8 )
+  const diagC = px(36, 36)
+  const diagD = px(67, 64)
 
   const transition = 'left 0.12s ease, top 0.12s ease, width 0.12s ease, height 0.12s ease'
 
@@ -804,14 +785,14 @@ function DebateSizePreview({ type, size }: { type: 'single' | 'double' | 'diagon
         fond
       </span>
 
-      {type === 'single' && block(single, 'rgba(139,92,246,0.82)', 'rgba(167,139,250,0.9)', 'speaker')}
+      {type === 'single' && block(single,  'rgba(139,92,246,0.82)', 'rgba(167,139,250,0.9)', 'speaker', 1)}
 
-      {type === 'double' && block(dL, 'rgba(59,130,246,0.82)',  'rgba(96,165,250,0.9)',  'G', 2)}
-      {type === 'double' && block(dR, 'rgba(245,158,11,0.82)',  'rgba(251,191,36,0.9)',  'D', 2)}
+      {type === 'double'   && block(dL,    'rgba(59,130,246,0.82)', 'rgba(96,165,250,0.9)',  'G',       1)}
+      {type === 'double'   && block(dR,    'rgba(245,158,11,0.82)', 'rgba(251,191,36,0.9)',  'D',       2)}
 
-      {type === 'diagonal' && block(diagG, 'rgba(59,130,246,0.82)',  'rgba(96,165,250,0.9)',  'G', 1)}
-      {type === 'diagonal' && block(diagC, 'rgba(16,185,129,0.82)',  'rgba(52,211,153,0.9)',  'C', 2)}
-      {type === 'diagonal' && block(diagD, 'rgba(245,158,11,0.82)',  'rgba(251,191,36,0.9)',  'D', 3)}
+      {type === 'diagonal' && block(diagG, 'rgba(59,130,246,0.82)', 'rgba(96,165,250,0.9)',  'G',       1)}
+      {type === 'diagonal' && block(diagC, 'rgba(16,185,129,0.82)', 'rgba(52,211,153,0.9)',  'C',       2)}
+      {type === 'diagonal' && block(diagD, 'rgba(245,158,11,0.82)', 'rgba(251,191,36,0.9)',  'D',       3)}
 
       <div className="absolute bottom-1 right-1.5" style={{ zIndex: 10 }}>
         <span className="text-[8px] text-gray-500 font-mono">{size}%</span>
