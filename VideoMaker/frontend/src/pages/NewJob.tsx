@@ -99,6 +99,180 @@ function Checkbox({
   )
 }
 
+// ─── Previews disposition ─────────────────────────────────────────────────────
+
+/**
+ * Miniature du canvas portrait 1080×1920.
+ * Montre la zone logo (haut), la zone disponible (bas) et la mini-vidéo
+ * à la taille et position calculées.
+ */
+function PortraitPreview({ size, position }: { size: string; position: string }) {
+  // Constantes identiques au backend portrait.py
+  const CANVAS_W      = 1080
+  const CANVAS_H      = 1920
+  const LOGO_H        = 960
+  const SPACING_TOP   = 100
+  const SPACING_BOTTOM = 100
+  const MAX_MINI_H    = 760
+  const MAX_VIDEO_W   = 680
+  const BORDER_W      = 3
+  const EDGE_MARGIN   = 20
+
+  const previewH = 280
+  const previewW = Math.round(previewH * CANVAS_W / CANVAS_H)   // ~157px
+  const scale    = previewH / CANVAS_H
+
+  const sizePct = parseInt(size) / 100
+
+  // Dimensions approximatives de la mini-vidéo (on suppose un ratio neutre)
+  const miniW = Math.max(4, Math.round(MAX_VIDEO_W * sizePct * scale))
+  const miniH = Math.max(4, Math.round(MAX_MINI_H  * sizePct * scale))
+  const bw    = Math.max(1, Math.round(BORDER_W * scale))
+  const totalW = miniW + bw * 2
+  const totalH = miniH + bw * 2
+
+  // Zone disponible en coordonnées preview
+  const zoneTopPx  = (LOGO_H + SPACING_TOP) * scale
+  const zoneHPx    = (CANVAS_H - SPACING_BOTTOM - LOGO_H - SPACING_TOP) * scale
+  const remainingH = Math.max(0, zoneHPx - totalH)
+  const remainingW = Math.max(0, previewW - totalW)
+  const edgeM      = EDGE_MARGIN * scale
+
+  // Décodage de la position
+  const pos    = position.toLowerCase()
+  const hAlign = pos.includes('left') ? 'left' : pos.includes('right') ? 'right' : 'center'
+  const vAlign = pos.includes('top')  ? 'top'  : pos.includes('bottom') ? 'bottom' : 'center'
+
+  let bx = hAlign === 'left'   ? edgeM
+         : hAlign === 'right'  ? Math.max(edgeM, previewW - totalW - edgeM)
+         : Math.max(0, remainingW / 2)
+
+  let by = vAlign === 'top'    ? zoneTopPx + edgeM
+         : vAlign === 'bottom' ? zoneTopPx + Math.max(0, remainingH - edgeM)
+         : zoneTopPx + remainingH / 2
+
+  return (
+    <div
+      className="relative bg-gray-950 rounded-lg overflow-hidden border border-gray-700 flex-shrink-0"
+      style={{ width: previewW, height: previewH }}
+      title="Aperçu de la disposition finale"
+    >
+      {/* Zone logo (haut) */}
+      <div
+        className="absolute top-0 left-0 right-0 flex items-center justify-center border-b border-gray-700"
+        style={{ height: LOGO_H * scale, background: 'rgba(30,30,40,0.9)' }}
+      >
+        <span className="text-[8px] text-gray-600 font-mono uppercase tracking-widest rotate-0">
+          Zone Logo
+        </span>
+      </div>
+
+      {/* Zone disponible mini-vidéo (bas) */}
+      <div
+        className="absolute left-0 right-0"
+        style={{ top: LOGO_H * scale, height: (CANVAS_H - LOGO_H) * scale, background: 'rgba(15,15,25,0.95)' }}
+      />
+
+      {/* Mini-vidéo */}
+      <div
+        className="absolute rounded flex items-center justify-center"
+        style={{
+          left: bx,
+          top: by,
+          width: totalW,
+          height: totalH,
+          background: 'rgba(124,58,237,0.75)',
+          border: `${bw}px solid rgba(255,255,255,0.85)`,
+          boxSizing: 'border-box',
+          transition: 'all 0.15s ease',
+        }}
+      >
+        <span className="text-[7px] text-white font-bold leading-none">{size}%</span>
+      </div>
+
+      {/* Label axe bas */}
+      <div className="absolute bottom-1 left-0 right-0 flex justify-center">
+        <span className="text-[7px] text-gray-700 font-mono">aperçu</span>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Miniature du canvas wave 1080×1920.
+ * Montre la waveform en bas et la mini-vidéo positionnée au-dessus.
+ */
+function WaveMiniPreview({ size, position }: { size: string; position: string }) {
+  const CANVAS_W = 1080
+  const CANVAS_H = 1920
+  const WAVE_H   = 300
+  const WAVE_Y   = CANVAS_H - WAVE_H - 80
+  const MINI_W   = 800
+  const MINI_H   = 450
+
+  const previewH = 220
+  const previewW = Math.round(previewH * CANVAS_W / CANVAS_H)
+  const scale    = previewH / CANVAS_H
+
+  const sizePct  = parseInt(size) / 100
+  const scaledW  = Math.max(4, Math.round(MINI_W * sizePct * scale))
+  const scaledH  = Math.max(4, Math.round(MINI_H * sizePct * scale))
+  const edgeM    = 3
+
+  // Position horizontale
+  const pos = position.toLowerCase()
+  const miniX = pos === 'left'  ? edgeM
+              : pos === 'right' ? Math.max(edgeM, previewW - scaledW - edgeM)
+              : (previewW - scaledW) / 2
+
+  // Position verticale : juste au-dessus de la waveform, ajustée selon size
+  const adjustedMiniY = (WAVE_Y - MINI_H * sizePct - 40) * scale
+
+  return (
+    <div
+      className="relative bg-gray-950 rounded-lg overflow-hidden border border-gray-700 flex-shrink-0"
+      style={{ width: previewW, height: previewH }}
+      title="Aperçu de la disposition finale"
+    >
+      {/* Background */}
+      <div className="absolute inset-0" style={{ background: 'rgba(15,15,25,0.95)' }} />
+
+      {/* Waveform zone */}
+      <div
+        className="absolute left-0 right-0 flex items-center justify-center"
+        style={{
+          top: WAVE_Y * scale,
+          height: WAVE_H * scale,
+          background: 'rgba(6,182,212,0.15)',
+          borderTop: '1px solid rgba(6,182,212,0.4)',
+        }}
+      >
+        <span className="text-[7px] text-cyan-700 font-mono">waveform</span>
+      </div>
+
+      {/* Mini-vidéo */}
+      <div
+        className="absolute rounded flex items-center justify-center"
+        style={{
+          left: miniX,
+          top: Math.max(2, adjustedMiniY),
+          width: scaledW,
+          height: scaledH,
+          background: 'rgba(124,58,237,0.75)',
+          border: '1px solid rgba(255,255,255,0.7)',
+          transition: 'all 0.15s ease',
+        }}
+      >
+        <span className="text-[7px] text-white font-bold">{size}%</span>
+      </div>
+
+      <div className="absolute bottom-1 left-0 right-0 flex justify-center">
+        <span className="text-[7px] text-gray-700 font-mono">aperçu</span>
+      </div>
+    </div>
+  )
+}
+
 /** Grille 3×3 de sélection de position (pour portrait) */
 const POSITION_GRID = [
   ['top-left',    'top',    'top-right'],
@@ -417,18 +591,28 @@ function WaveForm({ config, onReady, preselectedJobId }: {
           {/* Taille + Position mini-vidéo */}
           <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4 space-y-3">
             <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Mini-vidéo overlay</p>
-            <div>
-              <Label>Taille ({miniSize}%)</Label>
-              <input
-                type="range" min="20" max="100" value={miniSize}
-                onChange={e => setMiniSize(e.target.value)}
-                className="w-full accent-violet-500"
-              />
-              <input type="hidden" name="mini_size_percent" value={miniSize} />
-            </div>
-            <div>
-              <Label>Position horizontale</Label>
-              <PositionPickerH name="mini_position" value={miniPos} onChange={setMiniPos} />
+            <div className="flex items-start gap-4">
+              {/* Contrôles gauche */}
+              <div className="flex-1 space-y-3">
+                <div>
+                  <Label>Taille ({miniSize}%)</Label>
+                  <input
+                    type="range" min="20" max="100" value={miniSize}
+                    onChange={e => setMiniSize(e.target.value)}
+                    className="w-full accent-violet-500"
+                  />
+                  <input type="hidden" name="mini_size_percent" value={miniSize} />
+                </div>
+                <div>
+                  <Label>Position horizontale</Label>
+                  <PositionPickerH name="mini_position" value={miniPos} onChange={setMiniPos} />
+                </div>
+              </div>
+              {/* Preview droite */}
+              <div className="flex flex-col items-center gap-1 pt-1">
+                <span className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">Aperçu</span>
+                <WaveMiniPreview size={miniSize} position={miniPos} />
+              </div>
             </div>
           </div>
         </>
@@ -472,21 +656,27 @@ function PortraitForm({ onReady, preselectedJobId }: {
       {!audioOnly && (
         <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4 space-y-3">
           <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Mini-vidéo</p>
-          <div className="flex items-start gap-6">
-            {/* Taille */}
-            <div className="flex-1">
-              <Label>Taille ({size}%)</Label>
-              <input
-                type="range" min="20" max="100" value={size}
-                onChange={e => setSize(e.target.value)}
-                className="w-full accent-violet-500"
-              />
-              <input type="hidden" name="portrait_size_percent" value={size} />
+          <div className="flex items-start gap-4">
+            {/* Contrôles gauche */}
+            <div className="flex-1 space-y-3">
+              <div>
+                <Label>Taille ({size}%)</Label>
+                <input
+                  type="range" min="20" max="100" value={size}
+                  onChange={e => setSize(e.target.value)}
+                  className="w-full accent-violet-500"
+                />
+                <input type="hidden" name="portrait_size_percent" value={size} />
+              </div>
+              <div>
+                <Label>Position</Label>
+                <PositionPicker9 name="portrait_position" value={position} onChange={setPosition} />
+              </div>
             </div>
-            {/* Position */}
-            <div>
-              <Label>Position</Label>
-              <PositionPicker9 name="portrait_position" value={position} onChange={setPosition} />
+            {/* Preview droite */}
+            <div className="flex flex-col items-center gap-1 pt-1">
+              <span className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">Aperçu</span>
+              <PortraitPreview size={size} position={position} />
             </div>
           </div>
         </div>
