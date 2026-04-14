@@ -533,7 +533,7 @@ function WaveForm({ config, onReady, preselectedJobId }: {
         <Label>Vidéo de fond <span className="text-gray-500 font-normal">(optionnel — fond noir si absent)</span></Label>
         <FileInput name="background_video" label="Choisir la vidéo de fond" accept="video/*" />
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <Label>Style waveform</Label>
           <Select name="wave_style" value={waveStyle} onChange={setWaveStyle}>
@@ -578,8 +578,8 @@ function WaveForm({ config, onReady, preselectedJobId }: {
           {/* Taille + Position mini-vidéo */}
           <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4 space-y-3">
             <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Mini-vidéo overlay</p>
-            <div className="flex items-start gap-4">
-              {/* Contrôles gauche */}
+            <div className="flex flex-col md:flex-row md:items-start gap-4">
+              {/* Contrôles */}
               <div className="flex-1 space-y-3">
                 <div>
                   <Label>Taille ({miniSize}%)</Label>
@@ -613,8 +613,8 @@ function WaveForm({ config, onReady, preselectedJobId }: {
                   Réinitialiser la position
                 </button>
               </div>
-              {/* Preview droite */}
-              <div className="flex flex-col items-center gap-1 pt-1">
+              {/* Preview */}
+              <div className="flex flex-col items-center gap-1 md:pt-1">
                 <span className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">Aperçu</span>
                 <WaveMiniPreview size={miniSize} posX={miniPosX} posY={miniPosY} />
               </div>
@@ -662,8 +662,8 @@ function PortraitForm({ onReady, preselectedJobId }: {
       {!audioOnly && (
         <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4 space-y-3">
           <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Mini-vidéo</p>
-          <div className="flex items-start gap-4">
-            {/* Contrôles gauche */}
+          <div className="flex flex-col md:flex-row md:items-start gap-4">
+            {/* Contrôles */}
             <div className="flex-1 space-y-3">
               <div>
                 <Label>Taille ({size}%)</Label>
@@ -703,8 +703,8 @@ function PortraitForm({ onReady, preselectedJobId }: {
                 Réinitialiser la position
               </button>
             </div>
-            {/* Preview droite */}
-            <div className="flex flex-col items-center gap-1 pt-1">
+            {/* Preview */}
+            <div className="flex flex-col items-center gap-1 md:pt-1">
               <span className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">Aperçu</span>
               <PortraitPreview size={size} posX={posX} posY={posY} />
             </div>
@@ -712,7 +712,7 @@ function PortraitForm({ onReady, preselectedJobId }: {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <Label>Couleur de bordure</Label>
           <Select name="border_color" value={borderColor} onChange={setBorderColor}>
@@ -721,7 +721,7 @@ function PortraitForm({ onReady, preselectedJobId }: {
             ))}
           </Select>
         </div>
-        <div className="pt-6">
+        <div className="sm:pt-6">
           <Checkbox
             name="use_gpu"
             label="Utiliser le GPU (h264_nvenc)"
@@ -838,8 +838,8 @@ function LandscapeForm({ onReady, preselectedJobId }: {
       {!audioOnly && (
         <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4 space-y-3">
           <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Mini-vidéo</p>
-          <div className="flex items-start gap-4">
-            {/* Contrôles gauche */}
+          <div className="flex flex-col md:flex-row md:items-start gap-4">
+            {/* Contrôles */}
             <div className="flex-1 space-y-3">
               <div>
                 <Label>Taille ({size}%)</Label>
@@ -879,8 +879,8 @@ function LandscapeForm({ onReady, preselectedJobId }: {
                 Réinitialiser la position
               </button>
             </div>
-            {/* Preview droite */}
-            <div className="flex flex-col items-center gap-1 pt-1">
+            {/* Preview */}
+            <div className="flex flex-col items-center gap-1 md:pt-1">
               <span className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">Aperçu</span>
               <LandscapePreview size={size} posX={posX} posY={posY} />
             </div>
@@ -888,7 +888,7 @@ function LandscapeForm({ onReady, preselectedJobId }: {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <Label>Couleur de bordure</Label>
           <Select name="border_color" value={borderColor} onChange={setBorderColor}>
@@ -897,7 +897,7 @@ function LandscapeForm({ onReady, preselectedJobId }: {
             ))}
           </Select>
         </div>
-        <div className="pt-6">
+        <div className="sm:pt-6">
           <Checkbox
             name="use_gpu"
             label="Utiliser le GPU (h264_nvenc)"
@@ -1067,7 +1067,7 @@ function DebateSingleForm({ onReady }: { onReady: (ok: boolean) => void }) {
         <Label>Vidéo du speaker <Required /></Label>
         <FileInput name="speaker_left" label="Choisir la vidéo du speaker" accept="video/*" onPicked={setSpk} />
       </div>
-      <div className="flex items-end gap-4">
+      <div className="flex flex-col md:flex-row md:items-end gap-4">
         <div className="flex-1 space-y-3">
           <div>
             <Label>Taille speaker ({size}%)</Label>
@@ -1082,7 +1082,7 @@ function DebateSingleForm({ onReady }: { onReady: (ok: boolean) => void }) {
             </Select>
           </div>
         </div>
-        <div className="flex flex-col items-center gap-1 pb-0.5">
+        <div className="flex flex-col items-center gap-1 md:pb-0.5">
           <span className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">Aperçu</span>
           <DebateSizePreview type="single" size={size} />
         </div>
@@ -1110,7 +1110,7 @@ function DebateDoubleForm({ onReady }: { onReady: (ok: boolean) => void }) {
         <Label>Vidéo de fond <Required /></Label>
         <FileInput name="background_video" label="Choisir la vidéo de fond" accept="video/*" onPicked={setBg} />
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <Label><span className="text-blue-400">■</span> Speaker gauche (1er) <Required /></Label>
           <FileInput name="speaker_left" label="Vidéo gauche" accept="video/*" onPicked={setLeft} />
@@ -1120,7 +1120,7 @@ function DebateDoubleForm({ onReady }: { onReady: (ok: boolean) => void }) {
           <FileInput name="speaker_right" label="Vidéo droite" accept="video/*" onPicked={setRight} />
         </div>
       </div>
-      <div className="flex items-end gap-4">
+      <div className="flex flex-col md:flex-row md:items-end gap-4">
         <div className="flex-1 space-y-3">
           <div>
             <Label>Taille speakers ({size}%)</Label>
@@ -1135,7 +1135,7 @@ function DebateDoubleForm({ onReady }: { onReady: (ok: boolean) => void }) {
             </Select>
           </div>
         </div>
-        <div className="flex flex-col items-center gap-1 pb-0.5">
+        <div className="flex flex-col items-center gap-1 md:pb-0.5">
           <span className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">Aperçu</span>
           <DebateSizePreview type="double" size={size} />
         </div>
@@ -1164,7 +1164,7 @@ function DebateDiagonalForm({ onReady }: { onReady: (ok: boolean) => void }) {
         <Label>Vidéo de fond <Required /></Label>
         <FileInput name="background_video" label="Choisir la vidéo de fond" accept="video/*" onPicked={setBg} />
       </div>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div>
           <Label><span className="text-blue-400">■</span> Gauche (1er) <Required /></Label>
           <FileInput name="speaker_left" label="Vidéo gauche" accept="video/*" onPicked={setLeft} />
@@ -1178,7 +1178,7 @@ function DebateDiagonalForm({ onReady }: { onReady: (ok: boolean) => void }) {
           <FileInput name="speaker_right" label="Vidéo droite" accept="video/*" onPicked={setRight} />
         </div>
       </div>
-      <div className="flex items-end gap-4">
+      <div className="flex flex-col md:flex-row md:items-end gap-4">
         <div className="flex-1 space-y-3">
           <div>
             <Label>Taille speakers ({size}%)</Label>
@@ -1193,7 +1193,7 @@ function DebateDiagonalForm({ onReady }: { onReady: (ok: boolean) => void }) {
             </Select>
           </div>
         </div>
-        <div className="flex flex-col items-center gap-1 pb-0.5">
+        <div className="flex flex-col items-center gap-1 md:pb-0.5">
           <span className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">Aperçu</span>
           <DebateSizePreview type="diagonal" size={size} />
         </div>
@@ -1287,13 +1287,13 @@ export default function NewJob() {
       {/* Sélection du style — groupé par catégorie */}
       <div className="space-y-3">
         {[
-          { label: 'Préparation', keys: ['merge'], cols: 1 },
-          { label: 'Génération', keys: ['podcast', 'wave', 'portrait', 'landscape'], cols: 2 },
-          { label: 'Débat / Composite', keys: ['debate_single', 'debate_double', 'debate_diagonal'], cols: 3 },
+          { label: 'Préparation', keys: ['merge'], gridClass: 'grid grid-cols-1 gap-2' },
+          { label: 'Génération', keys: ['podcast', 'wave', 'portrait', 'landscape'], gridClass: 'grid grid-cols-2 gap-2' },
+          { label: 'Débat / Composite', keys: ['debate_single', 'debate_double', 'debate_diagonal'], gridClass: 'grid grid-cols-1 sm:grid-cols-3 gap-2' },
         ].map(group => (
           <div key={group.label}>
             <p className="text-xs text-gray-600 font-medium uppercase tracking-wider mb-2">{group.label}</p>
-            <div className={`grid grid-cols-${group.cols} gap-2`}>
+            <div className={group.gridClass}>
               {group.keys.map(key => {
                 const desc = config.job_styles[key] ?? ''
                 return (
@@ -1321,7 +1321,7 @@ export default function NewJob() {
       </div>
 
       {/* Formulaire */}
-      <form onSubmit={handleSubmit} className="bg-gray-900 rounded-2xl p-6 space-y-5">
+      <form onSubmit={handleSubmit} className="bg-gray-900 rounded-2xl p-4 sm:p-6 space-y-5">
         <div>
           <Label>Titre du job (optionnel)</Label>
           <Input name="title" placeholder="Ex: Clip conférence 5 min" value={title} onChange={setTitle} />
@@ -1346,11 +1346,11 @@ export default function NewJob() {
           </div>
         )}
 
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
           <button
             type="submit"
             disabled={loading || !canSubmit}
-            className="flex items-center gap-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium px-6 py-2.5 rounded-xl transition-colors"
+            className="flex items-center justify-center gap-2 w-full sm:w-auto bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium px-6 py-3 sm:py-2.5 rounded-xl transition-colors"
           >
             <Play size={16} />
             {loading ? 'Lancement...' : 'Lancer le job'}
