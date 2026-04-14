@@ -45,6 +45,7 @@ JOB_STYLES = {
     "podcast":          "Vidéo podcast (fond + audio)",
     "wave":             "Vidéo avec waveform animée",
     "portrait":         "Vidéo portrait 1080×1920",
+    "landscape":        "Vidéo paysage 1920×1080",
     # Débat / composite
     "debate_single":    "Débat — 1 intervenant (centré)",
     "debate_double":    "Débat — 2 intervenants (diagonal)",
