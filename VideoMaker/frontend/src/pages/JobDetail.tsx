@@ -109,7 +109,11 @@ export default function JobDetail() {
       // Charger les métadonnées complètes (style, etc.) une fois
       if (!jobMeta) {
         const meta = await getJob(id).catch(() => null)
-        if (meta) setJobMeta(meta)
+        if (meta) {
+          setJobMeta(meta)
+          // Pré-remplir le titre YouTube avec le titre du job
+          if (meta.title) setYtForm(prev => ({ ...prev, title: prev.title || meta.title }))
+        }
       }
       // Auto-scroll logs vers le bas
       if (logsRef.current) {
@@ -197,6 +201,7 @@ export default function JobDetail() {
       setYtResult(null)
       const res = await uploadToYoutube(id, {
         ...ytForm,
+        title: ytForm.title || jobMeta?.title || '',
         thumbnail: ytThumb ?? undefined,
       })
       setYtResult(res)
@@ -461,7 +466,7 @@ export default function JobDetail() {
               <button
                 type="button"
                 onClick={handleYoutubeUpload}
-                disabled={ytUploading || !ytForm.title}
+                disabled={ytUploading || !(ytForm.title || jobMeta?.title)}
                 className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white text-xs font-medium px-4 py-2 rounded-xl transition-colors"
               >
                 {ytUploading ? <Loader size={14} className="animate-spin" /> : <Upload size={14} />}
