@@ -8,11 +8,14 @@ import shutil
 import subprocess
 import uuid
 from pathlib import Path
+from typing import Optional
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 
-from ..config import SOURCES_DIR
+from ..config import SOURCES_DIR, OUTPUTS_DIR
+from ..services import job_runner
 
 router = APIRouter(prefix="/api/sources", tags=["sources"])
 
@@ -106,6 +109,53 @@ async def stream_source(source_id: str):
     mime = MIME_TYPES.get(video_file.suffix.lower(), "video/mp4")
 
     return FileResponse(str(video_file), media_type=mime)
+
+
+# ─── POST /api/sources/{source_id}/crop ──────────────────────────────────────
+
+class CropRequest(BaseModel):
+    top:    float = 0   # % de la hauteur à supprimer en haut    (0–49)
+    bottom: float = 0   # % de la hauteur à supprimer en bas     (0–49)
+    left:   float = 0   # % de la largeur  à supprimer à gauche  (0–49)
+    right:  float = 0   # % de la largeur  à supprimer à droite  (0–49)
+    use_gpu: bool = True
+    title: Optional[str] = None
+
+
+@router.post("/{source_id}/crop")
+def crop_source(source_id: str, req: CropRequest):
+    """
+    Lance un job de recadrage sur une vidéo source déjà uploadée dans l'éditeur.
+    Les valeurs top/bottom/left/right sont des pourcentages (0–49 %) de la dimension correspondante.
+    """
+    source_dir = SOURCES_DIR / source_id
+    if not source_dir.exists():
+        raise HTTPException(400, "Source introuvable — uploadez d'abord la vidéo dans l'éditeur")
+
+    files = [f for f in source_dir.iterdir() if f.is_file()]
+    if not files:
+        raise HTTPException(400, "Fichier source introuvable")
+
+    video_path = str(files[0])
+    title = req.title or f"Recadrage — {files[0].name}"
+
+    job_info    = job_runner.create_job("crop", title)
+    job_id      = job_info["id"]
+    output_dir  = OUTPUTS_DIR / job_id
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    params = {
+        "video_path": video_path,
+        "top":    f"{req.top}%",
+        "bottom": f"{req.bottom}%",
+        "left":   f"{req.left}%",
+        "right":  f"{req.right}%",
+        "use_gpu": req.use_gpu,
+        "title": title,
+    }
+
+    job_runner.submit_job(job_id, "crop", params)
+    return {"id": job_id, "status": "pending"}
 
 
 # ─── DELETE /api/sources/{source_id} ─────────────────────────────────────────

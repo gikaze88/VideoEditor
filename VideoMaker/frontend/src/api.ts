@@ -43,6 +43,25 @@ export interface ClipMark {
   end:   number
 }
 
+export async function cropSource(data: {
+  source_id: string
+  top:    number
+  bottom: number
+  left:   number
+  right:  number
+  use_gpu?: boolean
+  title?:   string
+}): Promise<Job> {
+  const { source_id, ...body } = data
+  const r = await fetch(`/api/sources/${source_id}/crop`, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify(body),
+  })
+  if (!r.ok) throw new Error(await r.text())
+  return r.json()
+}
+
 export async function createBatchExtractJob(data: {
   source_id: string
   clips:     ClipMark[]
