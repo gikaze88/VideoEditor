@@ -28,12 +28,14 @@ def init_db():
                 youtube_status   TEXT
             )
         """)
-        # Migration légère pour anciens schémas (ajout colonnes YouTube si manquantes)
+        # Migration légère pour anciens schémas (ajout colonnes si manquantes)
         cols = {row["name"] for row in conn.execute("PRAGMA table_info(jobs)")}
         if "youtube_video_id" not in cols:
             conn.execute("ALTER TABLE jobs ADD COLUMN youtube_video_id TEXT")
         if "youtube_status" not in cols:
             conn.execute("ALTER TABLE jobs ADD COLUMN youtube_status TEXT")
+        if "youtube_params" not in cols:
+            conn.execute("ALTER TABLE jobs ADD COLUMN youtube_params TEXT")
         conn.commit()
 
 

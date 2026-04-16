@@ -1,6 +1,7 @@
 """
 Router jobs : CRUD + upload de fichiers + téléchargement.
 """
+import json
 import os
 import shutil
 from pathlib import Path
@@ -123,6 +124,17 @@ async def create_job(
     speaker_left_job_ref:   Optional[str] = Form(None),
     speaker_center_job_ref: Optional[str] = Form(None),
     speaker_right_job_ref:  Optional[str] = Form(None),
+    # YouTube auto-upload (optionnel — rempli à la création du job)
+    yt_auto_upload:  Optional[str] = Form("false"),
+    yt_title:        Optional[str] = Form(""),
+    yt_description:  Optional[str] = Form(""),
+    yt_tags:         Optional[str] = Form(""),
+    yt_category:     Optional[str] = Form("25"),
+    yt_privacy:      Optional[str] = Form("private"),
+    yt_language:     Optional[str] = Form("fr"),
+    yt_license:      Optional[str] = Form("youtube"),
+    yt_embeddable:   Optional[str] = Form("true"),
+    yt_playlist_id:  Optional[str] = Form(""),
 ):
     # Créer l'entrée en base et le dossier d'output
     job_info = job_runner.create_job(style, title)
@@ -271,6 +283,27 @@ async def create_job(
         }
     else:
         raise HTTPException(status_code=400, detail=f"Style inconnu: {style}")
+
+    # Stocker les paramètres YouTube si l'auto-upload est activé
+    if yt_auto_upload and yt_auto_upload.lower() == "true":
+        yt_params = {
+            "auto_upload": True,
+            "title":       yt_title or title or "",
+            "description": yt_description or "",
+            "tags":        yt_tags or "",
+            "category_id": yt_category or "25",
+            "privacy":     yt_privacy or "private",
+            "language":    yt_language or "fr",
+            "license":     yt_license or "youtube",
+            "embeddable":  (yt_embeddable or "true").lower() == "true",
+            "playlist_id": yt_playlist_id or "",
+        }
+        with get_connection() as conn:
+            conn.execute(
+                "UPDATE jobs SET youtube_params=?, youtube_status='pending_upload' WHERE id=?",
+                (json.dumps(yt_params), job_id),
+            )
+            conn.commit()
 
     # Lancer le job en arrière-plan
     job_runner.submit_job(job_id, style, params)

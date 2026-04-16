@@ -98,6 +98,15 @@ async def playlists():
     return {"playlists": pls}
 
 
+@router.get("/meta")
+def youtube_meta():
+    """Retourne les catégories et langues disponibles."""
+    return {
+        "categories": yt_service.CATEGORIES,
+        "languages": yt_service.LANGUAGES,
+    }
+
+
 @router.post("/upload/{job_id}")
 async def upload_job_video(
     job_id: str,
@@ -106,9 +115,12 @@ async def upload_job_video(
     description: str = Form(""),
     tags: str = Form(""),
     privacy: str = Form("private"),
-    category_id: str = Form("27"),
+    category_id: str = Form("25"),
     playlist_id: Optional[str] = Form(None),
     filename: str = Form(""),
+    language: str = Form("fr"),
+    license_type: str = Form("youtube"),
+    embeddable: str = Form("true"),
     thumbnail: Optional[UploadFile] = File(None),
 ):
     job = _get_job_or_404(job_id)
@@ -151,6 +163,9 @@ async def upload_job_video(
                 category_id,
                 thumb_path,
                 playlist_id,
+                language,
+                license_type,
+                embeddable.lower() == "true",
                 log_cb,
             )
             with get_connection() as conn:
