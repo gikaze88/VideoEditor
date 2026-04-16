@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Upload, Play } from 'lucide-react'
+import { Upload, Play, Plus, X } from 'lucide-react'
 import { createJob, fetchConfig, type AppConfig } from '../api'
 import CropSelector, { type CropValues } from '../CropSelector'
 import JobPicker from '../JobPicker'
@@ -442,16 +442,69 @@ function CropForm({ onReady }: { onReady: (ok: boolean) => void }) {
 }
 
 function MergeForm({ onReady }: { onReady: (ok: boolean) => void }) {
-  const [files,   setFiles]   = useState(false)
+  const [slots,   setSlots]   = useState<{ id: number; filename: string | null }[]>([
+    { id: 0, filename: null },
+    { id: 1, filename: null },
+  ])
   const [reverse, setReverse] = useState(false)
+  const nextId = useRef(2)
 
-  useEffect(() => { onReady(files) }, [files, onReady])
+  const filledCount = slots.filter(s => s.filename !== null).length
+  useEffect(() => { onReady(filledCount >= 2) }, [filledCount, onReady])
+
+  function addSlot() {
+    setSlots(prev => [...prev, { id: nextId.current++, filename: null }])
+  }
+
+  function removeSlot(id: number) {
+    setSlots(prev => prev.filter(s => s.id !== id))
+  }
+
+  function setFilename(id: number, name: string | null) {
+    setSlots(prev => prev.map(s => s.id === id ? { ...s, filename: name } : s))
+  }
 
   return (
     <div className="space-y-4">
-      <div>
+      <div className="space-y-2">
         <Label>Vidéos à fusionner <Required /></Label>
-        <FileInput name="video_files" label="Choisir plusieurs vidéos" accept="video/*" multiple onPicked={setFiles} />
+        {slots.map((slot, i) => (
+          <div key={slot.id} className="flex items-center gap-2">
+            <label className={`flex-1 flex items-center gap-2 border border-dashed rounded-lg px-3 py-2.5 text-sm cursor-pointer transition-colors ${
+              slot.filename
+                ? 'bg-gray-800 border-violet-500 text-gray-200'
+                : 'bg-gray-800 border-gray-600 text-gray-400 hover:border-violet-500 hover:text-gray-200'
+            }`}>
+              <Upload size={13} className="shrink-0" />
+              <span className="truncate">{slot.filename ?? `Vidéo ${i + 1} — cliquer pour choisir`}</span>
+              <input
+                type="file"
+                name="video_files"
+                accept="video/*"
+                className="hidden"
+                onChange={e => setFilename(slot.id, e.target.files?.[0]?.name ?? null)}
+              />
+            </label>
+            {slots.length > 2 && (
+              <button
+                type="button"
+                onClick={() => removeSlot(slot.id)}
+                className="text-gray-600 hover:text-red-400 transition-colors shrink-0"
+                title="Retirer cette vidéo"
+              >
+                <X size={15} />
+              </button>
+            )}
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={addSlot}
+          className="flex items-center gap-2 text-sm text-gray-400 hover:text-violet-300 border border-dashed border-gray-700 hover:border-violet-600 rounded-lg px-3 py-2 w-full transition-colors"
+        >
+          <Plus size={14} />
+          Ajouter une vidéo
+        </button>
       </div>
       <Checkbox name="reverse_order" label="Inverser l'ordre" checked={reverse} onChange={setReverse} />
       <input type="hidden" name="reverse_order" value={reverse ? 'true' : 'false'} />
