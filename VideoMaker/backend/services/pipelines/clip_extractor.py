@@ -30,7 +30,7 @@ def run(job_id: str, params: dict, output_dir: Path, log_path: Path) -> Path:
     base = slug_from_title(title) if title else f"extract_{job_id}"
     output_file = output_dir / f"{base}.mp4"
 
-    with open(log_path, "a") as log:
+    with open(log_path, "a", encoding="utf-8") as log:
         log.write(f"[extract] {params['start_time']} → {params['end_time']} ({duration}s)\n")
         log.write(f"[extract] Source : {video_path}\n")
         log.flush()
@@ -45,7 +45,7 @@ def run(job_id: str, params: dict, output_dir: Path, log_path: Path) -> Path:
     ]
     check_ffmpeg(cmd, log_path, "Extraction échouée")
 
-    with open(log_path, "a") as log:
-        log.write(f"[extract] ✓ → {output_file}\n")
+    with open(log_path, "a", encoding="utf-8") as log:
+        log.write(f"[extract] OK -> {output_file}\n")
 
     return output_file

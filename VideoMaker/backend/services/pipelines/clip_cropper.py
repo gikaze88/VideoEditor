@@ -77,11 +77,11 @@ def run(job_id: str, params: dict, output_dir: Path, log_path: Path) -> Path:
         ]
         code = run_ffmpeg(cmd_gpu, log_path)
         if code == 0:
-            with open(log_path, "a") as log:
-                log.write(f"[crop] ✓ GPU réussi → {output_file}\n")
+            with open(log_path, "a", encoding="utf-8") as log:
+                log.write(f"[crop] OK GPU -> {output_file}\n")
             return output_file
 
-        with open(log_path, "a") as log:
+        with open(log_path, "a", encoding="utf-8") as log:
             log.write(f"[crop] GPU échoué (code {code}) — fallback CPU...\n")
             log.flush()
 
@@ -99,7 +99,7 @@ def run(job_id: str, params: dict, output_dir: Path, log_path: Path) -> Path:
     ]
     check_ffmpeg(cmd_cpu, log_path, "Encodage CPU échoué")
 
-    with open(log_path, "a") as log:
-        log.write(f"[crop] ✓ CPU réussi → {output_file}\n")
+    with open(log_path, "a", encoding="utf-8") as log:
+        log.write(f"[crop] OK CPU -> {output_file}\n")
 
     return output_file

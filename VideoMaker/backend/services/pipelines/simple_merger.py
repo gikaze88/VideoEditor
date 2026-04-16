@@ -20,7 +20,7 @@ def run(job_id: str, params: dict, output_dir: Path, log_path: Path) -> Path:
     base = slug_from_title(title) if title else f"merge_{job_id}"
     output_file = output_dir / f"{base}.mp4"
 
-    with open(log_path, "a") as log:
+    with open(log_path, "a", encoding="utf-8") as log:
         log.write(f"[merge] {len(video_paths)} fichier(s)\n")
         for i, p in enumerate(video_paths, 1):
             log.write(f"[merge]   {i}. {p}\n")
@@ -50,7 +50,7 @@ def run(job_id: str, params: dict, output_dir: Path, log_path: Path) -> Path:
             except Exception:
                 pass
 
-    with open(log_path, "a") as log:
-        log.write(f"[merge] ✓ → {output_file}\n")
+    with open(log_path, "a", encoding="utf-8") as log:
+        log.write(f"[merge] OK -> {output_file}\n")
 
     return output_file
