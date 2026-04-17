@@ -98,6 +98,15 @@ async def playlists():
     return {"playlists": pls}
 
 
+@router.get("/meta")
+def youtube_meta():
+    """Retourne les catégories et langues disponibles."""
+    return {
+        "categories": yt_service.CATEGORIES,
+        "languages": yt_service.LANGUAGES,
+    }
+
+
 @router.post("/upload/{job_id}")
 async def upload_job_video(
     job_id: str,
@@ -106,9 +115,12 @@ async def upload_job_video(
     description: str = Form(""),
     tags: str = Form(""),
     privacy: str = Form("private"),
-    category_id: str = Form("27"),
+    category_id: str = Form("25"),
     playlist_id: Optional[str] = Form(None),
     filename: str = Form(""),
+    language: str = Form("fr"),
+    license_type: str = Form("youtube"),
+    embeddable: str = Form("true"),
     thumbnail: Optional[UploadFile] = File(None),
 ):
     job = _get_job_or_404(job_id)
@@ -151,6 +163,9 @@ async def upload_job_video(
                 category_id,
                 thumb_path,
                 playlist_id,
+                language,
+                license_type,
+                embeddable.lower() == "true",
                 log_cb,
             )
             with get_connection() as conn:
@@ -184,18 +199,11 @@ async def upload_job_video(
 @router.get("/job/{job_id}")
 def youtube_job_status(job_id: str):
     job = _get_job_or_404(job_id)
-    vid = job.get("youtube_video_id")
+    vid    = job.get("youtube_video_id")
     status = job.get("youtube_status")
-    if not vid:
-        return {
-            "youtube_video_id": None,
-            "youtube_status": None,
-            "url": None,
-            "studio_url": None,
-        }
     return {
         "youtube_video_id": vid,
-        "youtube_status": status,
-        "url": f"https://youtu.be/{vid}",
-        "studio_url": f"https://studio.youtube.com/video/{vid}/edit",
+        "youtube_status":   status,
+        "url":              f"https://youtu.be/{vid}" if vid else None,
+        "studio_url":       f"https://studio.youtube.com/video/{vid}/edit" if vid else None,
     }

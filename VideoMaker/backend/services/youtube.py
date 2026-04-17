@@ -158,15 +158,42 @@ def get_playlists() -> List[Dict[str, str]]:
 
 # ─── Upload ───────────────────────────────────────────────────────────────────
 
+CATEGORIES = [
+    {"id": "25", "label": "News & Politics"},
+    {"id": "24", "label": "Entertainment"},
+    {"id": "22", "label": "People & Blogs"},
+    {"id": "27", "label": "Education"},
+    {"id": "23", "label": "Comedy"},
+    {"id": "26", "label": "Howto & Style"},
+    {"id": "29", "label": "Nonprofits & Activism"},
+    {"id": "19", "label": "Travel & Events"},
+    {"id": "10", "label": "Music"},
+    {"id": "17", "label": "Sports"},
+    {"id": "28", "label": "Science & Technology"},
+]
+
+LANGUAGES = [
+    {"code": "fr", "label": "Français"},
+    {"code": "en", "label": "English"},
+    {"code": "es", "label": "Español"},
+    {"code": "de", "label": "Deutsch"},
+    {"code": "pt", "label": "Português"},
+    {"code": "ar", "label": "العربية"},
+]
+
+
 def upload_video(
     video_path: Path,
     title: str,
     description: str,
     tags: Optional[List[str]] = None,
     privacy: str = "private",
-    category_id: str = "27",
+    category_id: str = "25",
     thumbnail_path: Optional[Path] = None,
     playlist_id: Optional[str] = None,
+    language: str = "fr",
+    license_type: str = "youtube",
+    embeddable: bool = True,
     log_callback: Optional[Callable[[str], None]] = None,
 ) -> str:
     """Upload une vidéo sur YouTube et retourne son video_id."""
@@ -181,11 +208,16 @@ def upload_video(
             "title": title,
             "description": description or "",
             "tags": [t.strip() for t in (tags or []) if t.strip()],
-            "categoryId": category_id or "27",
+            "categoryId": category_id or "25",
+            "defaultLanguage": language or "fr",
+            "defaultAudioLanguage": language or "fr",
         },
         "status": {
             "privacyStatus": privacy or "private",
             "selfDeclaredMadeForKids": False,
+            "license": license_type or "youtube",
+            "embeddable": embeddable,
+            "publicStatsViewable": True,
         },
     }
 

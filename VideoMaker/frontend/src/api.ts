@@ -98,6 +98,27 @@ export interface YoutubePlaylist {
   title: string
 }
 
+export interface YoutubeCategory {
+  id: string
+  label: string
+}
+
+export interface YoutubeLanguage {
+  code: string
+  label: string
+}
+
+export interface YoutubeMeta {
+  categories: YoutubeCategory[]
+  languages: YoutubeLanguage[]
+}
+
+export async function fetchYoutubeMeta(): Promise<YoutubeMeta> {
+  const r = await fetch(`${BASE}/youtube/meta`)
+  if (!r.ok) return { categories: [], languages: [] }
+  return r.json()
+}
+
 export interface YoutubeUploadResult {
   video_id: string
   url: string
@@ -148,6 +169,9 @@ export async function uploadToYoutube(
     categoryId: string
     playlistId: string
     filename: string
+    language?: string
+    licenseType?: string
+    embeddable?: boolean
     thumbnail?: File
   },
 ): Promise<YoutubeUploadResult> {
@@ -159,6 +183,9 @@ export async function uploadToYoutube(
   fd.set('category_id', params.categoryId)
   fd.set('playlist_id', params.playlistId)
   fd.set('filename', params.filename)
+  fd.set('language', params.language ?? 'fr')
+  fd.set('license_type', params.licenseType ?? 'youtube')
+  fd.set('embeddable', params.embeddable !== false ? 'true' : 'false')
   if (params.thumbnail) fd.set('thumbnail', params.thumbnail)
 
   const r = await fetch(`${BASE}/youtube/upload/${jobId}`, {

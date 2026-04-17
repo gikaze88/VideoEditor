@@ -1,7 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Upload, Play, Plus, X } from 'lucide-react'
-import { createJob, fetchConfig, type AppConfig } from '../api'
+import { Upload, Play, Plus, X, Youtube, ChevronDown, ChevronUp } from 'lucide-react'
+import {
+  createJob, fetchConfig, type AppConfig,
+  getYoutubeAuthStatus, getYoutubePlaylists, fetchYoutubeMeta,
+  type YoutubePlaylist, type YoutubeCategory, type YoutubeLanguage,
+} from '../api'
 import CropSelector, { type CropValues } from '../CropSelector'
 import JobPicker from '../JobPicker'
 
@@ -1284,6 +1288,23 @@ export default function NewJob() {
   const [error,   setError]   = useState<string | null>(null)
   const [canSubmit, setCanSubmit] = useState(false)
 
+  // YouTube section
+  const [ytOpen,        setYtOpen]        = useState(false)
+  const [ytEnabled,     setYtEnabled]     = useState(false)
+  const [ytAuth,        setYtAuth]        = useState<boolean | null>(null)
+  const [ytPlaylists,   setYtPlaylists]   = useState<YoutubePlaylist[]>([])
+  const [ytCategories,  setYtCategories]  = useState<YoutubeCategory[]>([])
+  const [ytLanguages,   setYtLanguages]   = useState<YoutubeLanguage[]>([])
+  const [ytTitle,       setYtTitle]       = useState('')
+  const [ytDescription, setYtDescription] = useState('')
+  const [ytTags,        setYtTags]        = useState('')
+  const [ytCategory,    setYtCategory]    = useState('25')
+  const [ytPrivacy,     setYtPrivacy]     = useState('private')
+  const [ytLanguage,    setYtLanguage]    = useState('fr')
+  const [ytLicense,     setYtLicense]     = useState('youtube')
+  const [ytEmbeddable,  setYtEmbeddable]  = useState(true)
+  const [ytPlaylistId,  setYtPlaylistId]  = useState('')
+
   // Job pré-sélectionné depuis le bouton "Utiliser dans..." de JobDetail
   const preselectedJobId = navState?.jobId ?? null
 
@@ -1291,12 +1312,25 @@ export default function NewJob() {
 
   useEffect(() => {
     fetchConfig().then(setConfig).catch(() => setError('Backend inaccessible'))
+    // Charger les métadonnées YouTube et vérifier l'auth dès le début
+    fetchYoutubeMeta().then(m => { setYtCategories(m.categories); setYtLanguages(m.languages) })
+    getYoutubeAuthStatus().then(s => {
+      setYtAuth(s.authenticated)
+      if (s.authenticated) {
+        getYoutubePlaylists().then(setYtPlaylists).catch(() => {})
+      }
+    }).catch(() => {})
   }, [])
 
   // Reset validité quand on change de style
   useEffect(() => {
     setCanSubmit(!!preselectedJobId)
   }, [style, preselectedJobId])
+
+  // Pré-remplir le titre YouTube avec le titre du job (si non encore modifié)
+  useEffect(() => {
+    setYtTitle(prev => prev || title)
+  }, [title])
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -1307,6 +1341,17 @@ export default function NewJob() {
       const fd = new FormData(e.currentTarget)
       fd.set('style', style)
       if (title) fd.set('title', title)
+      // Champs YouTube
+      fd.set('yt_auto_upload',  ytEnabled ? 'true' : 'false')
+      fd.set('yt_title',        ytTitle || title || '')
+      fd.set('yt_description',  ytDescription)
+      fd.set('yt_tags',         ytTags)
+      fd.set('yt_category',     ytCategory)
+      fd.set('yt_privacy',      ytPrivacy)
+      fd.set('yt_language',     ytLanguage)
+      fd.set('yt_license',      ytLicense)
+      fd.set('yt_embeddable',   ytEmbeddable ? 'true' : 'false')
+      fd.set('yt_playlist_id',  ytPlaylistId)
       const job = await createJob(fd)
       navigate(`/jobs/${job.id}`)
     } catch (err) {
@@ -1378,6 +1423,187 @@ export default function NewJob() {
         <div>
           <Label>Titre du job (optionnel)</Label>
           <Input name="title" placeholder="Ex: Clip conférence 5 min" value={title} onChange={setTitle} />
+        </div>
+
+        {/* ── Section YouTube ────────────────────────────────────────────────── */}
+        <div className="border border-gray-800 rounded-xl overflow-hidden">
+          {/* Header toggle */}
+          <button
+            type="button"
+            onClick={() => setYtOpen(v => !v)}
+            className="w-full flex items-center justify-between px-4 py-3 bg-gray-800/60 hover:bg-gray-800 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <Youtube size={15} className="text-red-400" />
+              <span className="text-sm font-medium text-gray-200">Publication YouTube</span>
+              {ytEnabled && (
+                <span className="text-[10px] bg-red-600/30 text-red-300 border border-red-600/30 rounded-full px-2 py-0.5">
+                  Auto-upload activé
+                </span>
+              )}
+              {ytAuth === false && (
+                <span className="text-[10px] text-gray-500">(non connecté)</span>
+              )}
+            </div>
+            {ytOpen ? <ChevronUp size={14} className="text-gray-500" /> : <ChevronDown size={14} className="text-gray-500" />}
+          </button>
+
+          {ytOpen && (
+            <div className="px-4 py-4 space-y-4 border-t border-gray-800">
+              {ytAuth === false ? (
+                <p className="text-xs text-gray-500 bg-gray-800/50 rounded-lg px-3 py-2">
+                  Connectez votre compte YouTube depuis la page d'un job terminé, puis revenez ici.
+                </p>
+              ) : (
+                <>
+                  {/* Toggle auto-upload */}
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={ytEnabled}
+                      onChange={e => setYtEnabled(e.target.checked)}
+                      className="w-4 h-4 accent-red-500"
+                    />
+                    <span className="text-sm text-gray-200 font-medium">
+                      Uploader automatiquement sur YouTube à la fin du job
+                    </span>
+                  </label>
+
+                  {ytEnabled && (
+                    <div className="space-y-3 text-xs">
+                      {/* Titre YouTube */}
+                      <div>
+                        <label className="block text-gray-400 mb-1">
+                          Titre YouTube
+                          <span className="text-gray-600 ml-1">(pré-rempli avec le titre du job)</span>
+                        </label>
+                        <input
+                          type="text"
+                          className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-gray-200"
+                          placeholder="Titre de la vidéo sur YouTube"
+                          value={ytTitle}
+                          onChange={e => setYtTitle(e.target.value)}
+                        />
+                      </div>
+
+                      {/* Description */}
+                      <div>
+                        <label className="block text-gray-400 mb-1">Description</label>
+                        <textarea
+                          className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-xs min-h-[80px] text-gray-200 resize-y"
+                          placeholder="Description de la vidéo..."
+                          value={ytDescription}
+                          onChange={e => setYtDescription(e.target.value)}
+                        />
+                      </div>
+
+                      {/* Tags */}
+                      <div>
+                        <label className="block text-gray-400 mb-1">Tags <span className="text-gray-600">(séparés par virgule)</span></label>
+                        <input
+                          type="text"
+                          className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-gray-200"
+                          placeholder="politique,actualité,france"
+                          value={ytTags}
+                          onChange={e => setYtTags(e.target.value)}
+                        />
+                      </div>
+
+                      {/* Row: catégorie + confidentialité */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-gray-400 mb-1">Catégorie</label>
+                          <select
+                            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-gray-200"
+                            value={ytCategory}
+                            onChange={e => setYtCategory(e.target.value)}
+                          >
+                            {ytCategories.length > 0
+                              ? ytCategories.map(c => <option key={c.id} value={c.id}>{c.label}</option>)
+                              : <option value="25">News &amp; Politics</option>
+                            }
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-gray-400 mb-1">
+                            Confidentialité{' '}
+                            <span className="text-yellow-500/80">⚠ Privé par défaut</span>
+                          </label>
+                          <select
+                            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-gray-200"
+                            value={ytPrivacy}
+                            onChange={e => setYtPrivacy(e.target.value)}
+                          >
+                            <option value="private">Privé</option>
+                            <option value="unlisted">Non répertorié</option>
+                            <option value="public">Public</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Row: langue + licence */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-gray-400 mb-1">Langue de la vidéo</label>
+                          <select
+                            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-gray-200"
+                            value={ytLanguage}
+                            onChange={e => setYtLanguage(e.target.value)}
+                          >
+                            {ytLanguages.length > 0
+                              ? ytLanguages.map(l => <option key={l.code} value={l.code}>{l.label}</option>)
+                              : <option value="fr">Français</option>
+                            }
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-gray-400 mb-1">Licence</label>
+                          <select
+                            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-gray-200"
+                            value={ytLicense}
+                            onChange={e => setYtLicense(e.target.value)}
+                          >
+                            <option value="youtube">Licence YouTube standard</option>
+                            <option value="creativeCommon">Creative Commons (CC BY)</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Row: playlist + embedding */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                        <div>
+                          <label className="block text-gray-400 mb-1">Playlist</label>
+                          <select
+                            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-gray-200"
+                            value={ytPlaylistId}
+                            onChange={e => setYtPlaylistId(e.target.value)}
+                          >
+                            <option value="">(aucune)</option>
+                            {ytPlaylists.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
+                          </select>
+                        </div>
+                        <label className="flex items-center gap-2 cursor-pointer pb-1">
+                          <input
+                            type="checkbox"
+                            checked={ytEmbeddable}
+                            onChange={e => setYtEmbeddable(e.target.checked)}
+                            className="w-4 h-4 accent-red-500"
+                          />
+                          <span className="text-gray-300">Autoriser l'intégration</span>
+                        </label>
+                      </div>
+
+                      <p className="text-[10px] text-gray-600 bg-gray-800/50 rounded px-2 py-1.5 leading-relaxed">
+                        La vidéo sera uploadée en <strong className="text-gray-400">Privé</strong> par défaut.
+                        Passez-la en Public depuis YouTube Studio après vérification.
+                        Le titre utilisé sera celui du job.
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         <hr className="border-gray-800" />
