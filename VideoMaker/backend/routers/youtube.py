@@ -199,18 +199,11 @@ async def upload_job_video(
 @router.get("/job/{job_id}")
 def youtube_job_status(job_id: str):
     job = _get_job_or_404(job_id)
-    vid = job.get("youtube_video_id")
+    vid    = job.get("youtube_video_id")
     status = job.get("youtube_status")
-    if not vid:
-        return {
-            "youtube_video_id": None,
-            "youtube_status": None,
-            "url": None,
-            "studio_url": None,
-        }
     return {
         "youtube_video_id": vid,
-        "youtube_status": status,
-        "url": f"https://youtu.be/{vid}",
-        "studio_url": f"https://studio.youtube.com/video/{vid}/edit",
+        "youtube_status":   status,
+        "url":              f"https://youtu.be/{vid}" if vid else None,
+        "studio_url":       f"https://studio.youtube.com/video/{vid}/edit" if vid else None,
     }

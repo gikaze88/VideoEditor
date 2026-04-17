@@ -144,6 +144,12 @@ export default function JobDetail() {
     }
   }, [id])
 
+  // Charger le statut YouTube au montage (pour rattraper un upload déjà en cours)
+  useEffect(() => {
+    if (!id) return
+    getYoutubeJobStatus(id).then(setYtStatus).catch(() => {})
+  }, [id])
+
   // Charger statut YouTube + playlists + meta quand le job est terminé
   useEffect(() => {
     if (!id) return
@@ -166,27 +172,33 @@ export default function JobDetail() {
         // ignore soft errors ici
       }
     })()
-  }, [id, data])
+  }, [id, data?.status])  // dépend seulement du changement de statut, pas de chaque re-render data
 
-  // Polling du statut YouTube pendant l'upload automatique
+  // Polling du statut YouTube — démarre dès qu'un upload auto est en cours/en attente
   const ytPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   useEffect(() => {
     if (!id) return
-    if (!ytStatus) return
-    if (ytStatus.youtube_status === 'uploading' || ytStatus.youtube_status === 'pending_upload') {
-      if (ytPollRef.current) return
-      ytPollRef.current = setInterval(async () => {
-        try {
-          const st = await getYoutubeJobStatus(id)
-          setYtStatus(st)
-          if (st.youtube_status !== 'uploading' && st.youtube_status !== 'pending_upload') {
-            if (ytPollRef.current) { clearInterval(ytPollRef.current); ytPollRef.current = null }
-          }
-        } catch { /* ignore */ }
-      }, 3000)
-    } else {
+
+    const isActive = (s: string | null | undefined) =>
+      s === 'uploading' || s === 'pending_upload'
+
+    if (!isActive(ytStatus?.youtube_status)) {
       if (ytPollRef.current) { clearInterval(ytPollRef.current); ytPollRef.current = null }
+      return
     }
+
+    if (ytPollRef.current) return  // déjà en cours
+
+    ytPollRef.current = setInterval(async () => {
+      try {
+        const st = await getYoutubeJobStatus(id)
+        setYtStatus(st)
+        if (!isActive(st.youtube_status)) {
+          if (ytPollRef.current) { clearInterval(ytPollRef.current); ytPollRef.current = null }
+        }
+      } catch { /* ignore */ }
+    }, 3000)
+
     return () => {
       if (ytPollRef.current) { clearInterval(ytPollRef.current); ytPollRef.current = null }
     }
@@ -371,13 +383,15 @@ export default function JobDetail() {
           )}
 
           {/* Déjà uploadé */}
-          {ytStatus?.youtube_video_id && (
+          {(ytStatus?.youtube_status === 'uploaded' || ytStatus?.youtube_video_id) && (
             <div className="text-xs bg-green-900/20 border border-green-700/40 rounded-lg px-3 py-2 space-y-1">
               <p className="text-green-400 font-medium">Vidéo uploadée sur YouTube ✓</p>
-              <div className="flex gap-3 flex-wrap">
-                <a href={ytStatus.url ?? undefined} target="_blank" rel="noreferrer" className="text-red-400 hover:underline">Voir sur YouTube</a>
-                <a href={ytStatus.studio_url ?? undefined} target="_blank" rel="noreferrer" className="text-gray-400 hover:underline">YouTube Studio</a>
-              </div>
+              {ytStatus?.youtube_video_id && (
+                <div className="flex gap-3 flex-wrap">
+                  <a href={ytStatus.url ?? undefined} target="_blank" rel="noreferrer" className="text-red-400 hover:underline">Voir sur YouTube</a>
+                  <a href={ytStatus.studio_url ?? undefined} target="_blank" rel="noreferrer" className="text-gray-400 hover:underline">YouTube Studio</a>
+                </div>
+              )}
             </div>
           )}
 
