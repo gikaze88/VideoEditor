@@ -1295,6 +1295,7 @@ export default function NewJob() {
   const [ytPlaylists,   setYtPlaylists]   = useState<YoutubePlaylist[]>([])
   const [ytCategories,  setYtCategories]  = useState<YoutubeCategory[]>([])
   const [ytLanguages,   setYtLanguages]   = useState<YoutubeLanguage[]>([])
+  const [ytTitle,       setYtTitle]       = useState('')
   const [ytDescription, setYtDescription] = useState('')
   const [ytTags,        setYtTags]        = useState('')
   const [ytCategory,    setYtCategory]    = useState('25')
@@ -1326,6 +1327,11 @@ export default function NewJob() {
     setCanSubmit(!!preselectedJobId)
   }, [style, preselectedJobId])
 
+  // Pré-remplir le titre YouTube avec le titre du job (si non encore modifié)
+  useEffect(() => {
+    setYtTitle(prev => prev || title)
+  }, [title])
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setLoading(true)
@@ -1337,7 +1343,7 @@ export default function NewJob() {
       if (title) fd.set('title', title)
       // Champs YouTube
       fd.set('yt_auto_upload',  ytEnabled ? 'true' : 'false')
-      fd.set('yt_title',        title || '')
+      fd.set('yt_title',        ytTitle || title || '')
       fd.set('yt_description',  ytDescription)
       fd.set('yt_tags',         ytTags)
       fd.set('yt_category',     ytCategory)
@@ -1465,6 +1471,21 @@ export default function NewJob() {
 
                   {ytEnabled && (
                     <div className="space-y-3 text-xs">
+                      {/* Titre YouTube */}
+                      <div>
+                        <label className="block text-gray-400 mb-1">
+                          Titre YouTube
+                          <span className="text-gray-600 ml-1">(pré-rempli avec le titre du job)</span>
+                        </label>
+                        <input
+                          type="text"
+                          className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-gray-200"
+                          placeholder="Titre de la vidéo sur YouTube"
+                          value={ytTitle}
+                          onChange={e => setYtTitle(e.target.value)}
+                        />
+                      </div>
+
                       {/* Description */}
                       <div>
                         <label className="block text-gray-400 mb-1">Description</label>
