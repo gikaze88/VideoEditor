@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { Upload, Play, Plus, X, Youtube, ChevronDown, ChevronUp } from 'lucide-react'
 import {
   createJob, fetchConfig, type AppConfig,
-  getYoutubeAuthStatus, getYoutubePlaylists, fetchYoutubeMeta,
+  getYoutubeAuthStatus, getYoutubeAuthUrl, getYoutubePlaylists, fetchYoutubeMeta,
   type YoutubePlaylist, type YoutubeCategory, type YoutubeLanguage,
 } from '../api'
 import CropSelector, { type CropValues } from '../CropSelector'
@@ -1304,6 +1304,31 @@ export default function NewJob() {
   const [ytLicense,     setYtLicense]     = useState('youtube')
   const [ytEmbeddable,  setYtEmbeddable]  = useState(true)
   const [ytPlaylistId,  setYtPlaylistId]  = useState('')
+  const [ytAuthLoading, setYtAuthLoading] = useState(false)
+  const ytAuthPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  async function handleYoutubeAuth() {
+    try {
+      setYtAuthLoading(true)
+      const url = await getYoutubeAuthUrl()
+      window.open(url, '_blank')
+      if (ytAuthPollRef.current) clearInterval(ytAuthPollRef.current)
+      ytAuthPollRef.current = setInterval(async () => {
+        try {
+          const st = await getYoutubeAuthStatus()
+          if (st.authenticated) {
+            if (ytAuthPollRef.current) clearInterval(ytAuthPollRef.current)
+            ytAuthPollRef.current = null
+            setYtAuth(true)
+            setYtAuthLoading(false)
+            getYoutubePlaylists().then(setYtPlaylists).catch(() => {})
+          }
+        } catch { /* ignore */ }
+      }, 2000)
+    } catch {
+      setYtAuthLoading(false)
+    }
+  }
 
   // Job pré-sélectionné depuis le bouton "Utiliser dans..." de JobDetail
   const preselectedJobId = navState?.jobId ?? null
@@ -1451,9 +1476,20 @@ export default function NewJob() {
           {ytOpen && (
             <div className="px-4 py-4 space-y-4 border-t border-gray-800">
               {ytAuth === false ? (
-                <p className="text-xs text-gray-500 bg-gray-800/50 rounded-lg px-3 py-2">
-                  Connectez votre compte YouTube depuis la page d'un job terminé, puis revenez ici.
-                </p>
+                <div className="space-y-3">
+                  <p className="text-xs text-gray-400">
+                    Connectez votre compte Google pour activer l'upload automatique.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleYoutubeAuth}
+                    disabled={ytAuthLoading}
+                    className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white text-xs font-medium px-4 py-2 rounded-xl transition-colors"
+                  >
+                    <Youtube size={14} />
+                    {ytAuthLoading ? 'En attente de connexion...' : 'Connecter mon compte YouTube'}
+                  </button>
+                </div>
               ) : (
                 <>
                   {/* Toggle auto-upload */}
