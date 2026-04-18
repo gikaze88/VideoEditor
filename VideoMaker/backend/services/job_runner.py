@@ -149,8 +149,9 @@ def _maybe_auto_upload(job_id: str, output_video: Path, log_path: Path) -> None:
             pass
 
 
-def _resolve_best_video(output_video: Path) -> Path:
+def _resolve_best_video(output_video) -> Path:
     """Retourne le fichier overlay s'il existe dans le même dossier, sinon output_video."""
+    output_video = Path(output_video)
     output_dir = output_video.parent
     overlay_files = sorted(output_dir.glob("*overlay*"))
     if overlay_files:
