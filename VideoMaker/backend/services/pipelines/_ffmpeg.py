@@ -66,6 +66,13 @@ def check_ffmpeg(cmd: list, log_path: Path, error_msg: str):
 
 def get_duration(path: Path) -> float:
     """Retourne la durée en secondes d'un fichier vidéo/audio via ffprobe."""
+    path = Path(path)
+    if not path.exists():
+        raise RuntimeError(
+            f"Impossible d'obtenir la durée de {path.name}: "
+            f"fichier introuvable → {path}"
+        )
+
     cmd = [
         "ffprobe", "-v", "quiet",
         "-print_format", "json",
@@ -73,11 +80,20 @@ def get_duration(path: Path) -> float:
         str(path),
     ]
     result = subprocess.run(
-        cmd, capture_output=True, text=True,
-        stdin=subprocess.DEVNULL, timeout=30,
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        stdin=subprocess.DEVNULL,
+        timeout=30,
     )
+    stdout = result.stdout or b""
+    stderr = result.stderr or b""
     try:
-        data = json.loads(result.stdout)
+        data = json.loads(stdout.decode("utf-8", errors="replace"))
         return float(data["format"]["duration"])
     except Exception as e:
-        raise RuntimeError(f"Impossible d'obtenir la durée de {path.name}: {e}")
+        stderr_msg = stderr.decode("utf-8", errors="replace").strip()
+        raise RuntimeError(
+            f"Impossible d'obtenir la durée de {path.name}: {e}"
+            + (f"\nffprobe stderr: {stderr_msg}" if stderr_msg else "")
+        )
